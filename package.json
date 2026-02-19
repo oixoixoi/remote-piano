@@ -1,7 +1,7 @@
 {
   "name": "remote-piano",
   "version": "1.0.0",
-  "description": "Remote Piano Session Server",
+  "description": "Remote Piano Server",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
