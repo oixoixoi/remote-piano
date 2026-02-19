@@ -3,229 +3,192 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Remote Piano v1.3.5</title>
+  <title>Remote Piano v1.3.7</title>
   <style>
-    body { background:#111; color:#fff; display:flex; flex-direction:column; height:100vh; margin:0; overflow:hidden; font-family:sans-serif; touch-action:none; user-select:none; -webkit-user-select:none; }
-    header { padding:15px 25px; display:flex; justify-content:space-between; align-items:center; background:#1a1a1a; border-bottom:1px solid #333; z-index:10; box-shadow:0 4px 10px rgba(0,0,0,0.5); }
-    .logo { font-size:22px; font-weight:bold; color:#0f8; letter-spacing:1px; }
-    .control-group { display:flex; gap:10px; align-items:center; }
-    input { padding:10px 15px; background:#222; border:1px solid #444; color:#fff; border-radius:5px; font-size:14px; outline:none; }
-    button { padding:10px 20px; border:none; border-radius:5px; font-weight:bold; font-size:14px; cursor:pointer; }
-    .btn-create { background:#0f8; color:#000; }
-    .btn-join { background:#0ea5e9; color:#fff; }
-    .btn-leave { background:#ff4444; color:#fff; }
-    .status-wrap { display:flex; align-items:center; gap:15px; background:rgba(0,0,0,0.5); padding:8px 15px; border-radius:10px; border:1px solid #333; }
-    #net-mode { font-size:12px; font-weight:bold; color:#888; }
-    #net-ping { font-size:14px; font-weight:bold; color:#888; font-family:monospace; }
-    #users { padding:20px; display:flex; gap:20px; flex-wrap:wrap; justify-content:center; min-height:40px; }
-    .u-card { background:#2a2a2a; padding:12px 25px; border-radius:30px; display:flex; align-items:center; gap:10px; border:1px solid #555; font-size:18px; font-weight:bold; }
-    .u-dot { width:12px; height:12px; background:#555; border-radius:50%; transition:0.1s; }
-    .u-dot.act { background:#0f8; box-shadow:0 0 10px #0f8; transform:scale(1.3); }
-    #piano { flex:1; display:flex; align-items:flex-start; padding-top:60px; justify-content:center; position:relative; overflow-x:auto; background:linear-gradient(to bottom, #111, #050505); }
-    .k { position:relative; border-radius:0 0 5px 5px; cursor:pointer; }
-    .w { width:38px; height:240px; background:#fff; border:1px solid #ccc; z-index:1; }
-    .w.on { background:#ffe600 !important; box-shadow:0 0 15px rgba(255,230,0,0.5); }
-    .b { width:24px; height:150px; background:#000; margin:0 -12px 90px -12px; z-index:2; border:1px solid #222; }
-    .b.on { background:#ffe600 !important; box-shadow:0 0 15px rgba(255,230,0,0.5); }
+    body { background:#000; color:#eee; margin:0; font-family:sans-serif; height:100vh; display:flex; flex-direction:column; overflow:hidden; touch-action:none; }
+    header { padding:10px 20px; display:flex; justify-content:space-between; align-items:center; background:#111; border-bottom:1px solid #222; }
+    .logo { color:#0f8; font-weight:bold; font-size:18px; }
+    .control-group { display:flex; gap:8px; }
+    input { padding:8px; background:#222; border:1px solid #333; color:#fff; border-radius:4px; width:80px; }
+    button { padding:8px 15px; border:none; border-radius:4px; cursor:pointer; font-weight:bold; }
+    .btn-main { background:#0f8; color:#000; }
+    #users { padding:10px; display:flex; gap:10px; justify-content:center; min-height:30px; }
+    .u-card { background:#111; padding:5px 12px; border-radius:15px; border:1px solid #333; font-size:12px; display:flex; align-items:center; gap:6px; }
+    .u-dot { width:8px; height:8px; background:#444; border-radius:50%; transition:0.1s; }
+    .u-dot.act { background:#0f8; box-shadow:0 0 8px #0f8; }
+    #piano-wrap { flex:1; display:flex; justify-content:center; overflow-x:auto; background:#050505; align-items:flex-start; padding-top:20px; }
+    #piano { display:flex; position:relative; }
+    .k { position:relative; border:1px solid #222; border-radius:0 0 4px 4px; cursor:pointer; }
+    .w { width:36px; height:200px; background:#fff; z-index:1; }
+    .w.on { background:#ffe600 !important; }
+    .b { width:22px; height:120px; background:#000; margin:0 -11px; z-index:2; border-color:#000; }
+    .b.on { background:#ffe600 !important; }
   </style>
 </head>
 <body onclick="if(audio.state==='suspended')audio.resume()">
 
 <header>
-  <div class="logo">🎹 Remote Piano</div>
-  <div class="control-group" id="login-form">
-    <input id="rn" placeholder="방 이름" autocomplete="off">
-    <input id="pw" type="password" placeholder="비번(4자리)" maxlength="4">
-    <input id="nm" placeholder="닉네임" autocomplete="off">
-    <button class="btn-create" onclick="createRoom()">방 만들기</button>
-    <button class="btn-join" onclick="joinRoom()">방 접속</button>
+  <div class="logo">🎹 SESSION v1.3.7</div>
+  <div id="login-form" class="control-group">
+    <input id="rn" placeholder="ROOM">
+    <input id="pw" type="password" placeholder="PASS" maxlength="4">
+    <input id="nm" placeholder="NAME">
+    <button class="btn-main" onclick="join()">JOIN</button>
   </div>
-  <div class="control-group" id="connected-ui" style="display:none;">
-    <div id="room-name-display" style="font-weight:bold; color:#0f8; font-size:16px; margin-right:15px;"></div>
-    <div class="status-wrap"><div class="net-info"><div id="net-mode">대기중</div><div id="net-ping">-- ms</div></div></div>
-    <button class="btn-leave" onclick="location.reload()">접속 끊기</button>
+  <div id="connected-ui" style="display:none; gap:15px; align-items:center;">
+    <span id="room-name" style="color:#0f8; font-weight:bold;"></span>
+    <span id="ping" style="color:#666; font-size:12px;">--ms</span>
+    <button style="background:#444; color:#fff;" onclick="location.reload()">EXIT</button>
   </div>
 </header>
 
 <div id="users"></div>
-<div id="piano"></div>
+<div id="piano-wrap"><div id="piano"></div></div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
   const audio = new (window.AudioContext||window.webkitAudioContext)();
   const socket = io();
-  const oscs = {}, gains = {};
-  let midiOutputs = []; 
-  const echoBlock = {}; 
-  const peers = {}; 
-  const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }; 
-
+  const voices = {};
+  let midiOuts = [];
+  const peers = {};
+  const echo = {};
+  
+  // [v1.3.7 핵심] 통합 페달 상태
   let isSustainOn = false;
   let sustainedNotes = new Set();
 
-  function play(n, v) {
-    if(oscs[n]) stop(n);
-    const o = audio.createOscillator();
-    const g = audio.createGain();
-    o.type = 'triangle';
-    o.frequency.value = 440 * Math.pow(2, (n-69)/12);
-    const vol = (v/127) * 0.4;
-    g.gain.setValueAtTime(0, audio.currentTime);
-    g.gain.linearRampToValueAtTime(vol, audio.currentTime + 0.005);
-    g.gain.exponentialRampToValueAtTime(vol * 0.1, audio.currentTime + 1.2);
-    o.connect(g); g.connect(audio.destination);
-    o.start();
-    oscs[n]=o; gains[n]=g;
-    const k = document.getElementById('k'+n);
-    if(k) k.classList.add('on');
-    sustainedNotes.delete(n);
-  }
-
-  // [잡음 방지 핵심 수정] 부드러운 감쇄 처리
-  function stop(n) {
-    if(gains[n]) {
-      const g = gains[n];
-      const o = oscs[n];
-      g.gain.cancelScheduledValues(audio.currentTime);
-      g.gain.setTargetAtTime(0, audio.currentTime, 0.04); // 곡선으로 부드럽게 0으로 수렴
-      setTimeout(()=>{ if(o) { o.stop(); o.disconnect(); g.disconnect(); } }, 200);
-    }
-    delete oscs[n]; delete gains[n];
-    const k = document.getElementById('k'+n);
-    if(k) k.classList.remove('on');
-  }
-
-  function tx(s, n, v) {
-    if(audio.state === 'suspended') audio.resume();
-    const type = s & 0xf0;
-
-    if (type === 0xb0 && n === 64) {
-      isSustainOn = v >= 64;
-      if (!isSustainOn) {
-        sustainedNotes.forEach(note => stop(note));
-        sustainedNotes.clear();
-      }
-    } else if (type === 0x90 && v > 0) {
-      play(n, v);
-    } else {
-      const k = document.getElementById('k'+n);
-      if(k) k.classList.remove('on');
-      if (isSustainOn) sustainedNotes.add(n); else stop(n);
-    }
-    
-    let sentP2P = false;
-    const msgStr = JSON.stringify([s, n, v]);
-    for (const peerId in peers) {
-      const dc = peers[peerId].dataChannel;
-      if (dc && dc.readyState === 'open') { dc.send(msgStr); sentP2P = true; }
-    }
-    if (!sentP2P && window.currentRoom) socket.emit('midi-msg', { roomName: window.currentRoom, msg: [s, n, v] });
-  }
-
-  const p = document.getElementById('piano');
+  const piano = document.getElementById('piano');
   for(let i=21; i<=108; i++) {
     const isB = [1,3,6,8,10].includes(i%12);
     const d = document.createElement('div');
     d.id = 'k'+i; d.className = `k ${isB?'b':'w'}`;
-    d.draggable = false; 
     d.onmousedown = (e) => { e.preventDefault(); tx(144, i, 100); };
     d.onmouseenter = (e) => { if(e.buttons === 1) tx(144, i, 100); };
-    d.onmouseleave = (e) => { tx(128, i, 0); };
-    d.onmouseup = (e) => { tx(128, i, 0); };
-    d.ontouchstart = (e) => { e.preventDefault(); tx(144, i, 100); };
-    d.ontouchend = (e) => { e.preventDefault(); tx(128, i, 0); };
-    p.appendChild(d);
+    d.onmouseleave = () => tx(128, i, 0);
+    d.onmouseup = () => tx(128, i, 0);
+    piano.appendChild(d);
   }
 
-  function createRoom() {
-    const r = document.getElementById('rn').value, pw = document.getElementById('pw').value, n = document.getElementById('nm').value;
-    if(!r || !pw || !n) return alert("빈칸을 채워주세요.");
-    socket.emit('create-room', { roomName: r, userName: n, password: pw });
-    window.currentRoom = r;
+  // [v1.3.7] 공용 처리 로직 (나와 남의 신호 모두 여기서 처리)
+  function processSignal(s, n, v, isRemote = false) {
+    const type = s & 0xf0;
+
+    // 1. 페달 처리 (CC 64)
+    if (type === 0xb0 && n === 64) {
+      isSustainOn = v >= 64;
+      if (!isSustainOn) {
+        sustainedNotes.forEach(note => stopSound(note));
+        sustainedNotes.clear();
+      }
+    } 
+    // 2. Note On
+    else if (type === 0x90 && v > 0) {
+      playKey(n, v);
+    } 
+    // 3. Note Off
+    else {
+      document.getElementById('k'+n)?.classList.remove('on');
+      if (isSustainOn) sustainedNotes.add(n); else stopSound(n);
+    }
   }
 
-  function joinRoom() {
-    const r = document.getElementById('rn').value, pw = document.getElementById('pw').value, n = document.getElementById('nm').value;
-    if(!r || !pw || !n) return alert("빈칸을 채워주세요.");
-    socket.emit('join-room', { roomName: r, userName: n, password: pw });
-    window.currentRoom = r;
+  function playKey(n, v) {
+    if(voices[n]) stopSound(n);
+    const o = audio.createOscillator();
+    const g = audio.createGain();
+    o.type = 'triangle';
+    o.frequency.value = 440 * Math.pow(2, (n-69)/12);
+    g.gain.setValueAtTime((v/127)*0.3, audio.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.01, audio.currentTime + 1.5);
+    o.connect(g); g.connect(audio.destination);
+    o.start();
+    voices[n] = { o, g };
+    document.getElementById('k'+n)?.classList.add('on');
+    sustainedNotes.delete(n);
+  }
+
+  function stopSound(n) {
+    if(voices[n]) {
+      const { o, g } = voices[n];
+      g.gain.setTargetAtTime(0, audio.currentTime, 0.04);
+      setTimeout(() => { try { o.stop(); o.disconnect(); } catch(e){} }, 200);
+      delete voices[n];
+    }
+    document.getElementById('k'+n)?.classList.remove('on');
+  }
+
+  function tx(s, n, v) {
+    if(audio.state==='suspended') audio.resume();
+    processSignal(s, n, v, false); // 로컬 실행
+    
+    const msg = [s, n, v];
+    const str = JSON.stringify(msg);
+    for(const id in peers) if(peers[id].dc?.readyState === 'open') peers[id].dc.send(str);
+    if(window.currentRoom) socket.emit('midi-msg', { roomName: window.currentRoom, msg });
+  }
+
+  function join() {
+    const r = document.getElementById('rn').value, p = document.getElementById('pw').value, n = document.getElementById('nm').value;
+    if(r&&p&&n) { socket.emit('join-room', { roomName: r, userName: n, password: p }); window.currentRoom = r; }
   }
 
   socket.on('join-success', d => {
     document.getElementById('login-form').style.display = 'none';
     document.getElementById('connected-ui').style.display = 'flex';
-    document.getElementById('room-name-display').innerText = `[ ${d.roomName} ]`;
-    upd(d.users);
+    document.getElementById('room-name').innerText = d.roomName;
+    d.users.forEach(addU);
   });
 
-  socket.on('error-msg', m => alert(m));
-  socket.on('user-left', id => { document.getElementById('u-'+id)?.remove(); if(peers[id]) { peers[id].pc.close(); delete peers[id]; } });
-
-  socket.on('remote-midi', d => { 
-    const [s, n, v] = d.msg; 
-    echoBlock[`${s}-${n}`] = Date.now(); 
-    remoteProcess(s, n, v, d.id);
+  socket.on('remote-midi', d => {
+    if(echo[`${d.msg[0]}-${d.msg[1]}`] && Date.now()-echo[`${d.msg[0]}-${d.msg[1]}`] < 100) return;
+    processSignal(d.msg[0], d.msg[1], d.msg[2], true);
+    const dot = document.getElementById('d-'+d.id);
+    if(dot) { dot.classList.add('act'); setTimeout(()=>dot.classList.remove('act'), 100); }
+    midiOuts.forEach(out => out.send(d.msg));
   });
 
-  function remoteProcess(s, n, v, id) {
-    const type = s & 0xf0;
-    if (type === 0xb0 && n === 64) {
-      isSustainOn = v >= 64;
-      if (!isSustainOn) { sustainedNotes.forEach(note => stop(note)); sustainedNotes.clear(); }
-    } else if (type === 0x90 && v > 0) {
-      play(n, v);
-    } else {
-      const k = document.getElementById('k'+n);
-      if(k) k.classList.remove('on');
-      if (isSustainOn) sustainedNotes.add(n); else stop(n);
-    }
-    flash(id);
-    midiOutputs.forEach(out => out.send([s, n, v]));
+  function addU(u) {
+    if(document.getElementById('u-'+u.id)) return;
+    const d = document.createElement('div');
+    d.id = 'u-'+u.id; d.className = 'u-card';
+    d.innerHTML = `<span class="u-dot" id="d-${u.id}"></span>${u.name}`;
+    document.getElementById('users').appendChild(d);
   }
 
-  function setupPeer(peerId, initiate) {
-    const pc = new RTCPeerConnection(rtcConfig);
-    peers[peerId] = { pc: pc, dataChannel: null };
-    pc.onicecandidate = e => { if (e.candidate) socket.emit('webrtc-signal', { to: peerId, signal: { candidate: e.candidate } }); };
-    const dcHandler = (dc) => {
-      peers[peerId].dataChannel = dc;
-      dc.onmessage = e => {
-        const data = JSON.parse(e.data);
-        if(data[0] === 'ping') return dc.send(JSON.stringify(['pong', data[1]]));
-        if(data[0] === 'pong') return updatePing(Date.now() - data[1]);
-        remoteProcess(data[0], data[1], data[2], peerId);
-      };
-      dc.onopen = () => document.getElementById('net-mode').innerText = "P2P연결됨 🟢";
-    };
-    if (initiate) { const dc = pc.createDataChannel('midi'); dcHandler(dc); pc.createOffer().then(o => pc.setLocalDescription(o)).then(() => socket.emit('webrtc-signal', { to: peerId, signal: { offer: pc.localDescription } })); }
-    else { pc.ondatachannel = e => dcHandler(e.channel); }
-  }
-
+  // P2P 로직 유지
   socket.on('user-joined', u => { addU(u); setupPeer(u.id, true); });
+  socket.on('user-left', id => document.getElementById('u-'+id)?.remove());
+
+  function setupPeer(id, init) {
+    const pc = new RTCPeerConnection({ iceServers:[{ urls:'stun:stun.l.google.com:19302' }] });
+    peers[id] = { pc };
+    pc.onicecandidate = e => e.candidate && socket.emit('webrtc-signal', { to:id, signal:{ candidate:e.candidate } });
+    const dcH = (dc) => {
+      peers[id].dc = dc;
+      dc.onmessage = e => {
+        const m = JSON.parse(e.data);
+        processSignal(m[0], m[1], m[2], true);
+      };
+    };
+    if(init) { const dc = pc.createDataChannel('m'); dcH(dc); pc.createOffer().then(o => pc.setLocalDescription(o)).then(() => socket.emit('webrtc-signal', { to:id, signal:{ offer:pc.localDescription } })); }
+    else pc.ondatachannel = e => dcH(e.channel);
+  }
+
   socket.on('webrtc-signal', async d => {
-    const { from, signal } = d;
-    if (!peers[from]) setupPeer(from, false);
-    const pc = peers[from].pc;
-    if (signal.offer) { await pc.setRemoteDescription(new RTCSessionDescription(signal.offer)); const a = await pc.createAnswer(); await pc.setLocalDescription(a); socket.emit('webrtc-signal', { to: from, signal: { answer: pc.localDescription } }); }
-    else if (signal.answer) { await pc.setRemoteDescription(new RTCSessionDescription(signal.answer)); }
-    else if (signal.candidate) { await pc.addIceCandidate(new RTCIceCandidate(signal.candidate)); }
+    const pc = peers[d.from]?.pc || setupPeer(d.from, false).pc;
+    if(d.signal.offer) { await pc.setRemoteDescription(d.signal.offer); const a = await pc.createAnswer(); await pc.setLocalDescription(a); socket.emit('webrtc-signal', { to:d.from, signal:{ answer:a } }); }
+    else if(d.signal.answer) await pc.setRemoteDescription(d.signal.answer);
+    else if(d.signal.candidate) await pc.addIceCandidate(d.signal.candidate);
   });
 
-  function updatePing(ms) { document.getElementById('net-ping').innerText = ms + " ms"; }
-  socket.on('ping-res', t => updatePing(Date.now() - t));
-  setInterval(() => { if(window.currentRoom) socket.emit('ping-req', Date.now()); }, 2000);
-
-  function upd(us) { document.getElementById('users').innerHTML=''; us.forEach(addU); }
-  function addU(u) { if(!document.getElementById('u-'+u.id)) { const d = document.createElement('div'); d.className = 'u-card'; d.id='u-'+u.id; d.innerHTML=`<span class="u-dot" id="d-${u.id}"></span>${u.name}`; document.getElementById('users').appendChild(d); } }
-  function flash(id) { const d = document.getElementById('d-'+id); if(d) { d.classList.add('act'); setTimeout(()=>d.classList.remove('act'), 100); } }
+  socket.on('ping-res', t => document.getElementById('ping').innerText = (Date.now()-t) + 'ms');
+  setInterval(() => window.currentRoom && socket.emit('ping-req', Date.now()), 2000);
 
   if(navigator.requestMIDIAccess) {
-    navigator.requestMIDIAccess().then(m => { 
-      for(let i of m.inputs.values()) i.onmidimessage = e => {
-        if (echoBlock[`${e.data[0]}-${e.data[1]}`] && Date.now() - echoBlock[`${e.data[0]}-${e.data[1]}`] < 100) return;
-        tx(e.data[0], e.data[1], e.data[2]);
-      };
-      for(let o of m.outputs.values()) midiOutputs.push(o);
+    navigator.requestMIDIAccess().then(m => {
+      for(let i of m.inputs.values()) i.onmidimessage = e => tx(e.data[0], e.data[1], e.data[2]);
+      for(let o of m.outputs.values()) midiOuts.push(o);
     });
   }
 </script>
