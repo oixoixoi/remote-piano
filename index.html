@@ -6,39 +6,32 @@
   <title>Remote Piano</title>
   <style>
     body { background:#111; color:#fff; display:flex; flex-direction:column; height:100vh; margin:0; overflow:hidden; font-family:sans-serif; touch-action:none; user-select:none; -webkit-user-select:none; }
-    
     header { padding:20px 25px; display:flex; flex-direction:column; gap:20px; background:#1a1a1a; border-bottom:1px solid #333; z-index:10; box-shadow:0 4px 10px rgba(0,0,0,0.5); }
     .header-top { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:15px; }
     .logo { font-size:24px; font-weight:bold; color:#0f8; letter-spacing:1px; }
-    
     .control-group { display:flex; gap:10px; align-items:center; }
     input { padding:12px 15px; background:#222; border:1px solid #444; color:#fff; border-radius:6px; font-size:14px; outline:none; transition:0.2s; width:140px; }
     input:focus { border-color:#0f8; }
     input[readonly] { color:#0f8; font-weight:bold; cursor:not-allowed; background:#151515; } 
-    
     button { padding:12px 22px; border:none; border-radius:6px; font-weight:bold; font-size:14px; cursor:pointer; transition:0.2s; display:flex; align-items:center; gap:8px; }
     .btn-create { background:#0f8; color:#000; } 
     .btn-join { background:#0ea5e9; color:#fff; } 
     .btn-leave { background:#ff4444; color:#fff; }
     .btn-mute { background:#444; color:#fff; min-width:100px; justify-content:center; }
     .btn-mute.active { background:#ffb74d; color:#000; }
-
     .lobby-area { display:flex; gap:15px; align-items:center; }
     .lobby-label { color:#888; font-size:13px; font-weight:bold; white-space:nowrap; }
     #active-rooms { display:flex; gap:10px; flex-wrap:wrap; }
     .room-tag { padding:6px 15px; background:#2a2a2a; border:1px solid #444; border-radius:15px; cursor:pointer; font-size:13px; color:#ccc; transition:0.2s; }
     .room-tag:hover { background:#333; border-color:#0f8; color:#0f8; }
-
     .status-wrap { display:flex; align-items:center; gap:15px; background:rgba(0,0,0,0.6); padding:8px 18px; border-radius:10px; border:1px solid #333; }
     .net-info { text-align:right; display:flex; flex-direction:column; gap:2px; }
     #net-mode { font-size:12px; font-weight:bold; }
     #net-ping { font-size:14px; font-weight:bold; font-family:monospace; }
-    
     #users { padding:15px; display:flex; gap:15px; flex-wrap:wrap; justify-content:center; min-height:50px; }
     .u-card { background:#252525; padding:10px 20px; border-radius:25px; display:flex; align-items:center; gap:10px; border:1px solid #444; font-size:16px; font-weight:bold; }
     .u-dot { width:10px; height:10px; background:#444; border-radius:50%; }
     .u-dot.act { background:#0f8; box-shadow:0 0 8px #0f8; transform:scale(1.2); }
-    
     #piano { flex:1; display:flex; align-items:flex-start; padding-top:40px; justify-content:center; position:relative; overflow-x:auto; background:linear-gradient(to bottom, #111, #000); }
     .k { position:relative; border-radius:0 0 5px 5px; cursor:pointer; transition:background 0.05s; -webkit-user-drag:none; }
     .w { width:38px; height:240px; background:#fff; border:1px solid #ccc; z-index:1; }
@@ -48,38 +41,30 @@
   </style>
 </head>
 <body>
-
 <header>
   <div class="header-top">
     <div class="logo">🎹 Remote Piano</div>
-    
     <div class="control-group" id="login-form">
       <input id="rn" placeholder="방 이름" autocomplete="off">
       <input id="pw" type="text" placeholder="비밀번호(4자리)" maxlength="4" autocomplete="off" oninput="this.value=this.value.replace(/[^0-9]/g,'')">
       <input id="nm" placeholder="닉네임" autocomplete="off">
-      <button class="btn-create" onclick="createRoom()">방 만들기</button>
+      <button class="btn-create" id="btn-action" onclick="createRoom()">방 만들기</button>
       <button id="btn-cancel" class="btn-leave" style="display:none;" onclick="resetLobbyMode()">취소</button>
     </div>
-    
     <div class="control-group" id="connected-ui" style="display:none;">
       <div id="room-name-display" style="font-weight:bold; color:#0f8; font-size:18px; margin-right:10px;"></div>
       <div class="status-wrap">
-        <div class="net-info">
-          <div id="net-mode">연결 대기중</div>
-          <div id="net-ping">-- ms</div>
-        </div>
+        <div class="net-info"><div id="net-mode">연결 대기중</div><div id="net-ping">-- ms</div></div>
       </div>
       <button id="mute-btn" class="btn-mute" onclick="toggleMute()">🔈 소리 켬</button>
       <button class="btn-leave" onclick="location.reload()">접속 끊기</button>
     </div>
   </div>
-
   <div class="lobby-area" id="lobby-wrap">
     <span class="lobby-label">🟢 열려있는 방:</span>
     <div id="active-rooms"><span style="color:#444; font-size:13px;">진행 중인 방이 없습니다.</span></div>
   </div>
 </header>
-
 <div id="users"></div>
 <div id="piano"></div>
 
@@ -87,8 +72,7 @@
 <script>
   const audio = new (window.AudioContext||window.webkitAudioContext)();
   const socket = io();
-  const oscs = {}, gains = {}, bellOscs = {};
-  const echoBlock = {}; 
+  const activeVoices = {}; // n: { body: osc, bell: osc, gain: gainNode }
   const peers = {}; 
   const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }; 
 
@@ -101,68 +85,79 @@
     const btn = document.getElementById('mute-btn');
     btn.innerText = isMuted ? "🔇 소리 끔" : "🔈 소리 켬";
     btn.classList.toggle('active', isMuted);
-    if(isMuted) Object.keys(oscs).forEach(n => stop(n, true)); 
+    if(isMuted) Object.keys(activeVoices).forEach(n => stop(n, true)); 
   }
 
-  // 🎹 일렉트릭 피아노(EP) 엔진
+  // 🎹 Rhodes 스타일 일렉트릭 피아노(EP) 사운드 엔진
   function play(n, v) {
     if(isMuted) return;
-    if(oscs[n]) stop(n, true);
+    if(audio.state === 'suspended') audio.resume();
+    if(activeVoices[n]) stop(n, true);
 
     const now = audio.currentTime;
+    const freq = 440 * Math.pow(2, (n-69)/12);
     const vol = (v/127) * 0.4;
 
-    // 메인 바디 (부드러운 Sine/Triangle 조합)
-    const o = audio.createOscillator();
-    const g = audio.createGain();
-    o.type = 'triangle';
-    o.frequency.value = 440 * Math.pow(2, (n-69)/12);
-    g.gain.setValueAtTime(0, now);
-    g.gain.linearRampToValueAtTime(vol, now + 0.01);
-    g.gain.exponentialRampToValueAtTime(vol * 0.1, now + 2.0);
-    o.connect(g); g.connect(audio.destination);
-    o.start();
+    // 1. 바디 사운드 (Triangle + Sine 배음)
+    const body = audio.createOscillator();
+    const bodyGain = audio.createGain();
+    body.type = 'triangle';
+    body.frequency.value = freq;
+    
+    // 2. 벨 사운드 (Tine)
+    const bell = audio.createOscillator();
+    const bellGain = audio.createGain();
+    bell.type = 'sine';
+    bell.frequency.value = freq * 3.001; // 높은 배음으로 금속성 추가
 
-    // 링잉 벨 사운드 (EP 특유의 금속성 음색 추가)
-    const bo = audio.createOscillator();
-    const bg = audio.createGain();
-    bo.type = 'sine';
-    bo.frequency.value = o.frequency.value * 2.01; // 약간의 배음
-    bg.gain.setValueAtTime(0, now);
-    bg.gain.linearRampToValueAtTime(vol * 0.3, now + 0.005);
-    bg.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
-    bo.connect(bg); bg.connect(audio.destination);
-    bo.start();
+    const masterGain = audio.createGain();
+    masterGain.gain.setValueAtTime(0, now);
+    masterGain.gain.linearRampToValueAtTime(vol, now + 0.005);
+    masterGain.gain.exponentialRampToValueAtTime(vol * 0.05, now + 2.5);
 
-    oscs[n] = o; gains[n] = g; bellOscs[n] = bo;
+    bodyGain.gain.value = 0.8;
+    bellGain.gain.setValueAtTime(0.4, now);
+    bellGain.gain.exponentialRampToValueAtTime(0.01, now + 0.4); // 벨소리는 금방 사라짐
+
+    body.connect(bodyGain); bodyGain.connect(masterGain);
+    bell.connect(bellGain); bellGain.connect(masterGain);
+    masterGain.connect(audio.destination);
+
+    body.start();
+    bell.start();
+
+    activeVoices[n] = { body, bell, gain: masterGain };
     document.getElementById('k'+n)?.classList.add('on');
   }
 
   function stop(n, force = false) {
-    if(!oscs[n]) return;
+    // 건반 불빛은 즉시 제거
+    document.getElementById('k'+n)?.classList.remove('on');
+
+    const voice = activeVoices[n];
+    if(!voice) return;
     
-    // 페달이 밟혀있고 강제 종료가 아니면 끄지 않고 유지함
+    // 페달 유지 로직
     if(isSustainOn && !force) {
       sustainedNotes.add(n);
       return;
     }
 
-    const g = gains[n];
-    if(g) {
-      g.gain.cancelScheduledValues(audio.currentTime);
-      g.gain.setValueAtTime(g.gain.value, audio.currentTime);
-      g.gain.linearRampToValueAtTime(0, audio.currentTime + 0.1); // EP 특유의 부드러운 릴리즈
-    }
-    const o = oscs[n];
-    const bo = bellOscs[n];
-    setTimeout(()=>{ 
-      if(o) { o.stop(); o.disconnect(); } 
-      if(bo) { bo.stop(); bo.disconnect(); }
-    }, 120);
+    const { body, bell, gain } = voice;
+    const now = audio.currentTime;
     
-    delete oscs[n]; delete gains[n]; delete bellOscs[n];
+    gain.gain.cancelScheduledValues(now);
+    gain.gain.setValueAtTime(gain.gain.value, now);
+    gain.gain.linearRampToValueAtTime(0, now + 0.15); // EP 특유의 부드러운 릴리즈
+
+    setTimeout(() => {
+      body.stop(); body.disconnect();
+      bell.stop(); bell.disconnect();
+      gain.disconnect();
+    }, 200);
+    
+    delete activeVoices[n];
     sustainedNotes.delete(n);
-    document.getElementById('k'+n)?.classList.remove('on');
   }
 
   function handleSustain(val) {
@@ -175,22 +170,18 @@
 
   function tx(s, n, v) {
     if(audio.state === 'suspended') audio.resume();
-    
-    // MIDI CC 64 (페달) 처리
     if(s === 176 && n === 64) handleSustain(v);
     else if(s===144 && v>0) play(n,v); 
     else stop(n);
     
-    let sentP2P = false;
-    const msgStr = JSON.stringify([s, n, v]);
-    for (const peerId in peers) {
-      const channel = peers[peerId].dataChannel;
-      if (channel && channel.readyState === 'open') { channel.send(msgStr); sentP2P = true; }
+    const msg = JSON.stringify([s, n, v]);
+    for (const id in peers) {
+      if (peers[id].dataChannel?.readyState === 'open') peers[id].dataChannel.send(msg);
     }
-    if (!sentP2P && window.currentRoom) socket.emit('midi-msg', { roomName: window.currentRoom, msg: [s, n, v] });
+    if (window.currentRoom) socket.emit('midi-msg', { roomName: window.currentRoom, msg: [s, n, v] });
   }
 
-  // 피아노 생성
+  // 피아노 건반 생성
   const pianoEl = document.getElementById('piano');
   for(let i=21; i<=108; i++) {
     const isB = [1,3,6,8,10].includes(i%12);
@@ -201,32 +192,28 @@
   }
 
   // 마우스/터치 로직
-  let currentActiveNote = null;
+  let activeMouseKey = null;
   pianoEl.addEventListener('mousedown', (e) => {
     const k = e.target.closest('.k');
-    if(k) { e.preventDefault(); const note = parseInt(k.id.replace('k','')); currentActiveNote = note; tx(144, note, 100); }
+    if(k) { e.preventDefault(); const n = parseInt(k.id.replace('k','')); activeMouseKey = n; tx(144, n, 100); }
   });
   pianoEl.addEventListener('mouseover', (e) => {
     if(e.buttons !== 1) return; 
     const k = e.target.closest('.k');
     if(k) {
-      const note = parseInt(k.id.replace('k',''));
-      if(currentActiveNote !== note) {
-        if(currentActiveNote) tx(128, currentActiveNote, 0); 
-        currentActiveNote = note;
-        tx(144, note, 100);
-      }
+      const n = parseInt(k.id.replace('k',''));
+      if(activeMouseKey !== n) { if(activeMouseKey) tx(128, activeMouseKey, 0); activeMouseKey = n; tx(144, n, 100); }
     }
   });
-  window.addEventListener('mouseup', () => { if(currentActiveNote) { tx(128, currentActiveNote, 0); currentActiveNote = null; } });
-  pianoEl.addEventListener('mouseleave', () => { if(currentActiveNote) { tx(128, currentActiveNote, 0); currentActiveNote = null; } });
+  window.addEventListener('mouseup', () => { if(activeMouseKey) { tx(128, activeMouseKey, 0); activeMouseKey = null; } });
+  pianoEl.addEventListener('mouseleave', () => { if(activeMouseKey) { tx(128, activeMouseKey, 0); activeMouseKey = null; } });
 
   const activeTouches = {};
   pianoEl.addEventListener('touchstart', (e) => {
     e.preventDefault();
     for (let t of e.changedTouches) {
       const el = document.elementFromPoint(t.clientX, t.clientY);
-      if (el && el.classList.contains('k')) { const n = parseInt(el.id.replace('k','')); activeTouches[t.identifier] = n; tx(144, n, 100); }
+      if (el?.classList.contains('k')) { const n = parseInt(el.id.replace('k','')); activeTouches[t.identifier] = n; tx(144, n, 100); }
     }
   }, {passive: false});
   pianoEl.addEventListener('touchmove', (e) => {
@@ -234,7 +221,7 @@
     for (let t of e.changedTouches) {
       const el = document.elementFromPoint(t.clientX, t.clientY);
       const pn = activeTouches[t.identifier];
-      if (el && el.classList.contains('k')) {
+      if (el?.classList.contains('k')) {
         const cn = parseInt(el.id.replace('k',''));
         if (pn !== cn) { if (pn) tx(128, pn, 0); activeTouches[t.identifier] = cn; tx(144, cn, 100); }
       }
@@ -244,72 +231,41 @@
     for (let t of e.changedTouches) { const pn = activeTouches[t.identifier]; if (pn) { tx(128, pn, 0); delete activeTouches[t.identifier]; } }
   });
 
-  // 통신 및 로비 로직 (생략 없이 통합)
+  // 로비 및 통신 로직
   socket.on('room-list', rs => {
     const c = document.getElementById('active-rooms');
     if(rs.length === 0) { c.innerHTML = '<span style="color:#444; font-size:13px;">진행 중인 방이 없습니다.</span>'; return; }
-    c.innerHTML = '';
-    rs.forEach(r => { const b = document.createElement('div'); b.className = 'room-tag'; b.innerText = r; b.onclick = () => selectRoom(r); c.appendChild(b); });
+    c.innerHTML = ''; rs.forEach(r => { const b = document.createElement('div'); b.className = 'room-tag'; b.innerText = r; b.onclick = () => selectRoom(r); c.appendChild(b); });
   });
-
   function selectRoom(r) {
     document.getElementById('rn').value = r; document.getElementById('rn').readOnly = true; 
-    const b = document.getElementById('btn-action'); if(b) { b.innerText = "방 접속"; b.className = "btn-join"; b.onclick = joinRoom; }
+    const b = document.getElementById('btn-action'); b.innerText = "방 접속"; b.className = "btn-join"; b.onclick = joinRoom;
     document.getElementById('btn-cancel').style.display = 'inline-block'; document.getElementById('pw').focus(); 
   }
   function resetLobbyMode() {
     document.getElementById('rn').value = ''; document.getElementById('rn').readOnly = false;
-    const b = document.getElementById('btn-action'); if(b) { b.innerText = "방 만들기"; b.className = "btn-create"; b.onclick = createRoom; }
+    const b = document.getElementById('btn-action'); b.innerText = "방 만들기"; b.className = "btn-create"; b.onclick = createRoom;
     document.getElementById('btn-cancel').style.display = 'none';
-  }
-
-  function createRoom() {
-    const d = validate(); if(!d) return;
-    socket.emit('create-room', { roomName: d.r, userName: d.n, password: d.pw });
-    window.currentRoom = d.r;
-  }
-  function joinRoom() {
-    const d = validate(); if(!d) return;
-    socket.emit('join-room', { roomName: d.r, userName: d.n, password: d.pw });
-    window.currentRoom = d.r;
   }
   function validate() {
     const r = document.getElementById('rn').value.trim(), pw = document.getElementById('pw').value.trim(), n = document.getElementById('nm').value.trim();
     if(!r || !pw || !n) { alert("빈칸을 채워주세요!"); return null; }
     return { r, pw, n };
   }
-
+  function createRoom() { const d = validate(); if(!d) return; socket.emit('create-room', { roomName: d.r, userName: d.n, password: d.pw }); window.currentRoom = d.r; }
+  function joinRoom() { const d = validate(); if(!d) return; socket.emit('join-room', { roomName: d.r, userName: d.n, password: d.pw }); window.currentRoom = d.r; }
   socket.on('join-success', d => {
     document.getElementById('login-form').style.display = 'none'; document.getElementById('lobby-wrap').style.display = 'none'; 
     document.getElementById('connected-ui').style.display = 'flex'; document.getElementById('room-name-display').innerText = `[ ${d.roomName} ]`; upd(d.users);
   });
-  socket.on('error-msg', m => alert(m));
   socket.on('user-left', id => { document.getElementById('u-'+id)?.remove(); if(peers[id]) { peers[id].pc.close(); delete peers[id]; } });
   socket.on('remote-midi', d => { 
     const [s,n,v] = d.msg; 
-    if(s === 176 && n === 64) handleSustain(v);
-    else if(s===144 && v>0) play(n,v); else stop(n); 
+    if(s === 176 && n === 64) handleSustain(v); else if(s===144 && v>0) play(n,v); else stop(n); 
     flash(d.id); 
   });
-  socket.on('user-activity', d => flash(d.id));
-
-  function updatePing(ms) {
-    const pE = document.getElementById('net-ping'); const mE = document.getElementById('net-mode');
-    pE.innerText = ms + " ms"; pE.style.color = ms < 50 ? "#0f8" : (ms < 150 ? "#ffeb3b" : "#ff4444");
-  }
-  socket.on('ping-res', t => updatePing(Date.now() - t));
-  setInterval(() => {
-    if(!window.currentRoom) return;
-    let p2p = false; for(const p in peers) { if(peers[p].dataChannel?.readyState === 'open') p2p = true; }
-    const mE = document.getElementById('net-mode');
-    if(p2p) {
-      mE.innerText = "직통연결 ⚡"; mE.style.color = "#0f8";
-      for(const p in peers) { peers[p].dataChannel.send(JSON.stringify(['ping', Date.now()])); }
-    } else {
-      mE.innerText = "우회연결 ☁️"; mE.style.color = "#ffb74d";
-      socket.emit('ping-req', Date.now());
-    }
-  }, 2000);
+  socket.on('ping-res', t => { const ms = Date.now() - t; const pE = document.getElementById('net-ping'); pE.innerText = ms + " ms"; pE.style.color = ms < 50 ? "#0f8" : (ms < 150 ? "#ffeb3b" : "#ff4444"); });
+  setInterval(() => { if(window.currentRoom) socket.emit('ping-req', Date.now()); }, 2000);
 
   function setupPeerConnection(id, init) {
     const pc = new RTCPeerConnection(rtcConfig); peers[id] = { pc: pc, dataChannel: null };
@@ -318,12 +274,7 @@
       peers[id].dataChannel = dc;
       dc.onmessage = e => {
         const d = JSON.parse(e.data);
-        if(d[0] === 'ping') { dc.send(JSON.stringify(['pong', d[1]])); return; }
-        if(d[0] === 'pong') { updatePing(Date.now() - d[1]); return; }
-        const [s, n, v] = d;
-        if(s === 176 && n === 64) handleSustain(v);
-        else if(s===144 && v>0) play(n,v); else stop(n);
-        flash(id);
+        const [s, n, v] = d; if(s === 176 && n === 64) handleSustain(v); else if(s===144 && v>0) play(n,v); else stop(n); flash(id);
       };
     };
     if (init) { const dc = pc.createDataChannel('midi'); setupDC(dc); pc.createOffer().then(o => pc.setLocalDescription(o)).then(() => socket.emit('webrtc-signal', { to: id, signal: { offer: pc.localDescription } })); } 
@@ -333,17 +284,13 @@
   socket.on('webrtc-signal', async d => {
     const { from, signal: s } = d; if (!peers[from]) setupPeerConnection(from, false); const pc = peers[from].pc;
     if (s.offer) { await pc.setRemoteDescription(new RTCSessionDescription(s.offer)); const a = await pc.createAnswer(); await pc.setLocalDescription(a); socket.emit('webrtc-signal', { to: from, signal: { answer: pc.localDescription } }); } 
-    else if (s.answer) { await pc.setRemoteDescription(new RTCSessionDescription(s.answer)); } else if (s.candidate) { await pc.addIceCandidate(new RTCIceCandidate(s.candidate)); }
+    else if (s.answer) await pc.setRemoteDescription(new RTCSessionDescription(s.answer)); else if (s.candidate) await pc.addIceCandidate(new RTCIceCandidate(s.candidate));
   });
-
   function upd(us) { document.getElementById('users').innerHTML=''; us.forEach(addU); }
   function addU(u) { if(document.getElementById('u-'+u.id)) return; const d = document.createElement('div'); d.className = 'u-card'; d.id='u-'+u.id; d.innerHTML=`<span class="u-dot" id="d-${u.id}"></span>${u.name}`; document.getElementById('users').appendChild(d); }
   function flash(id) { const d = document.getElementById('d-'+id); if(d) { d.classList.add('act'); setTimeout(()=>d.classList.remove('act'), 100); } }
-  
   if(navigator.requestMIDIAccess) {
-    navigator.requestMIDIAccess().then(m => { 
-      for(let i of m.inputs.values()) { i.onmidimessage = e => tx(e.data[0], e.data[1], e.data[2]); }
-    });
+    navigator.requestMIDIAccess().then(m => { for(let i of m.inputs.values()) i.onmidimessage = e => tx(e.data[0], e.data[1], e.data[2]); });
   }
 </script>
 </body>
