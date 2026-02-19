@@ -7,20 +7,26 @@
   <style>
     body { background:#111; color:#fff; display:flex; flex-direction:column; height:100vh; margin:0; overflow:hidden; font-family:sans-serif; touch-action:none; user-select:none; -webkit-user-select:none; }
     
-    header { padding:15px 25px; display:flex; justify-content:space-between; align-items:center; background:#1a1a1a; border-bottom:1px solid #333; z-index:10; box-shadow:0 4px 10px rgba(0,0,0,0.5); }
+    header { padding:15px 25px; display:flex; flex-direction:column; gap:15px; background:#1a1a1a; border-bottom:1px solid #333; z-index:10; box-shadow:0 4px 10px rgba(0,0,0,0.5); }
+    .header-top { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; }
     .logo { font-size:22px; font-weight:bold; color:#0f8; letter-spacing:1px; }
     
     .control-group { display:flex; gap:10px; align-items:center; }
     input { padding:10px 15px; background:#222; border:1px solid #444; color:#fff; border-radius:5px; font-size:14px; outline:none; transition:0.2s; }
     input:focus { border-color:#0f8; }
+    input[readonly] { color:#0f8; font-weight:bold; cursor:not-allowed; } /* 선택된 방 강조 */
     
     button { padding:10px 20px; border:none; border-radius:5px; font-weight:bold; font-size:14px; cursor:pointer; transition:0.2s; }
-    .btn-create { background:#0f8; color:#000; } /* 방만들기 버튼 (초록) */
+    .btn-create { background:#0f8; color:#000; } 
     .btn-create:hover { background:#0c6; }
-    .btn-join { background:#0ea5e9; color:#fff; } /* 접속 버튼 (파랑) */
+    .btn-join { background:#0ea5e9; color:#fff; } 
     .btn-join:hover { background:#0284c7; }
     .btn-leave { background:#ff4444; color:#fff; }
     .btn-leave:hover { background:#cc0000; }
+
+    /* 열려있는 방 태그 디자인 */
+    .room-tag { padding:8px 18px; background:#2a2a2a; border:1px solid #444; border-radius:20px; cursor:pointer; font-size:13px; font-weight:bold; color:#ccc; transition:0.2s; box-shadow:0 2px 4px rgba(0,0,0,0.3); }
+    .room-tag:hover { background:#0f8; color:#000; border-color:#0f8; transform:translateY(-1px); }
 
     .status-wrap { display:flex; align-items:center; gap:15px; background:rgba(0,0,0,0.5); padding:8px 15px; border-radius:10px; border:1px solid #333; }
     .net-info { text-align:right; display:flex; flex-direction:column; gap:3px; }
@@ -44,26 +50,35 @@
 <body>
 
 <header>
-  <div class="logo">🎹 Remote Piano</div>
-  
-  <div class="control-group" id="login-form">
-    <input id="rn" placeholder="방 이름" autocomplete="off">
-    <input id="pw" type="password" placeholder="비밀번호(숫자 4자리)" maxlength="4" autocomplete="off">
-    <input id="nm" placeholder="닉네임" autocomplete="off">
-    <button class="btn-create" onclick="createRoom()">방 만들기</button>
-    <button class="btn-join" onclick="joinRoom()">방 접속</button>
-  </div>
-  
-  <div class="control-group" id="connected-ui" style="display:none;">
-    <div id="room-name-display" style="font-weight:bold; color:#0f8; font-size:16px; margin-right:15px; letter-spacing:1px;"></div>
+  <div class="header-top">
+    <div class="logo">🎹 Remote Piano</div>
     
-    <div class="status-wrap" id="dash">
-      <div class="net-info">
-        <div id="net-mode">통신상태: 대기중</div>
-        <div id="net-ping">-- ms</div>
-      </div>
+    <div class="control-group" id="login-form">
+      <input id="rn" placeholder="새 방 이름" autocomplete="off">
+      <input id="pw" type="password" placeholder="비밀번호(4자리)" maxlength="4" autocomplete="off">
+      <input id="nm" placeholder="닉네임" autocomplete="off">
+      
+      <button id="btn-action" class="btn-create" onclick="createRoom()">방 만들기</button>
+      <button id="btn-cancel" class="btn-leave" style="display:none;" onclick="resetLobbyMode()">취소</button>
     </div>
-    <button class="btn-leave" onclick="location.reload()">접속 끊기</button>
+    
+    <div class="control-group" id="connected-ui" style="display:none;">
+      <div id="room-name-display" style="font-weight:bold; color:#0f8; font-size:16px; margin-right:15px; letter-spacing:1px;"></div>
+      <div class="status-wrap" id="dash">
+        <div class="net-info">
+          <div id="net-mode">통신상태: 대기중</div>
+          <div id="net-ping">-- ms</div>
+        </div>
+      </div>
+      <button class="btn-leave" onclick="location.reload()">접속 끊기</button>
+    </div>
+  </div>
+
+  <div id="room-list-wrap" style="display:flex; gap:15px; align-items:center; padding-top:10px; border-top:1px dashed #333;">
+    <span style="color:#888; font-size:13px; font-weight:bold; white-space:nowrap;">🟢 현재 열려있는 방:</span>
+    <div id="active-rooms" style="display:flex; gap:10px; flex-wrap:wrap;">
+      <span style="color:#555; font-size:13px;">방이 없습니다. 이름을 적고 새로 만들어보세요!</span>
+    </div>
   </div>
 </header>
 
@@ -77,7 +92,6 @@
   const oscs = {}, gains = {};
   let midiOutputs = []; 
   const echoBlock = {}; 
-
   const peers = {}; 
   const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }; 
 
@@ -127,13 +141,9 @@
     
     let sentP2P = false;
     const msgStr = JSON.stringify([s, n, v]);
-    
     for (const peerId in peers) {
       const channel = peers[peerId].dataChannel;
-      if (channel && channel.readyState === 'open') {
-        channel.send(msgStr);
-        sentP2P = true;
-      }
+      if (channel && channel.readyState === 'open') { channel.send(msgStr); sentP2P = true; }
     }
     if (!sentP2P && window.currentRoom) socket.emit('midi-msg', { roomName: window.currentRoom, msg: [s, n, v] });
   }
@@ -151,11 +161,8 @@
     d.addEventListener('mouseup', (e) => { tx(128, i, 0); });
     
     d.addEventListener('touchstart', (e) => {
-      e.preventDefault();
-      currentTouchNote = i;
-      tx(144, i, 100);
+      e.preventDefault(); currentTouchNote = i; tx(144, i, 100);
     }, {passive: false});
-    
     d.addEventListener('touchend', (e) => { e.preventDefault(); tx(128, i, 0); currentTouchNote = null; }, {passive: false});
     d.addEventListener('touchcancel', (e) => { e.preventDefault(); tx(128, i, 0); currentTouchNote = null; }, {passive: false});
 
@@ -167,7 +174,6 @@
     if (e.target.closest('#piano')) e.preventDefault();
     const touch = e.touches[0];
     const elem = document.elementFromPoint(touch.clientX, touch.clientY);
-    
     if(elem && elem.classList.contains('k')) {
       const note = parseInt(elem.id.replace('k',''));
       if(currentTouchNote !== note) {
@@ -180,7 +186,59 @@
     }
   }, {passive: false});
 
-  // 입력값 검증 함수 (비밀번호 4자리 강제)
+  // --------------------------------------------------------
+  // 로비 UI 로직 (방 선택, 모드 전환)
+  // --------------------------------------------------------
+  
+  // 서버로부터 실시간 방 목록을 받음
+  socket.on('room-list', rooms => {
+    const container = document.getElementById('active-rooms');
+    if(!container) return;
+    
+    if(rooms.length === 0) {
+      container.innerHTML = '<span style="color:#555; font-size:13px;">방이 없습니다. 이름을 적고 새로 만들어보세요!</span>';
+      return;
+    }
+    
+    container.innerHTML = '';
+    rooms.forEach(r => {
+      const btn = document.createElement('div');
+      btn.className = 'room-tag';
+      btn.innerText = r;
+      btn.onclick = () => selectRoom(r); // 방을 누르면 접속 모드로 전환!
+      container.appendChild(btn);
+    });
+  });
+
+  // 열려있는 방을 클릭했을 때 (접속 모드로 변환)
+  function selectRoom(roomName) {
+    const rnInput = document.getElementById('rn');
+    rnInput.value = roomName;
+    rnInput.readOnly = true; // 방 이름 수정 불가
+    
+    const btnAction = document.getElementById('btn-action');
+    btnAction.innerText = "방 접속";
+    btnAction.className = "btn-join";
+    btnAction.onclick = joinRoom;
+
+    document.getElementById('btn-cancel').style.display = 'inline-block';
+    document.getElementById('pw').focus(); // 비밀번호 칸으로 포커스 이동!
+  }
+
+  // 취소 버튼을 눌렀을 때 (방 만들기 모드로 복구)
+  function resetLobbyMode() {
+    const rnInput = document.getElementById('rn');
+    rnInput.value = '';
+    rnInput.readOnly = false;
+    
+    const btnAction = document.getElementById('btn-action');
+    btnAction.innerText = "방 만들기";
+    btnAction.className = "btn-create";
+    btnAction.onclick = createRoom;
+
+    document.getElementById('btn-cancel').style.display = 'none';
+  }
+
   function validateInput() {
     const r = document.getElementById('rn').value.trim();
     const pw = document.getElementById('pw').value.trim();
@@ -188,11 +246,9 @@
     
     if(!r || !pw || !n) { alert("방 이름, 비밀번호, 닉네임을 모두 채워주세요!"); return null; }
     if(!/^\d{4}$/.test(pw)) { alert("비밀번호는 숫자 4자리로만 입력해야 합니다!"); return null; }
-    
     return { r, pw, n };
   }
 
-  // 1. 방 만들기
   function createRoom() {
     const data = validateInput();
     if(!data) return;
@@ -202,7 +258,6 @@
     window.currentRoom = data.r;
   }
 
-  // 2. 방 접속
   function joinRoom() {
     const data = validateInput();
     if(!data) return;
@@ -214,6 +269,7 @@
 
   socket.on('join-success', d => {
     document.getElementById('login-form').style.display = 'none';
+    document.getElementById('room-list-wrap').style.display = 'none'; // 접속 성공하면 로비 숨김
     document.getElementById('connected-ui').style.display = 'flex';
     document.getElementById('room-name-display').innerText = `[ ${d.roomName} ]`;
     upd(d.users);
@@ -241,17 +297,9 @@
     const pingEl = document.getElementById('net-ping');
     const modeEl = document.getElementById('net-mode');
     pingEl.innerText = ms + " ms";
-    
-    if(ms < 50) {
-      modeEl.innerText = "통신상태: 좋음 🟢";
-      modeEl.style.color = "#0f8"; pingEl.style.color = "#0f8";
-    } else if(ms < 150) {
-      modeEl.innerText = "통신상태: 중간 🟡";
-      modeEl.style.color = "#ffeb3b"; pingEl.style.color = "#ffeb3b";
-    } else {
-      modeEl.innerText = "통신상태: 나쁨 🔴";
-      modeEl.style.color = "#ff4444"; pingEl.style.color = "#ff4444";
-    }
+    if(ms < 50) { modeEl.innerText = "통신상태: 좋음 🟢"; modeEl.style.color = "#0f8"; pingEl.style.color = "#0f8"; } 
+    else if(ms < 150) { modeEl.innerText = "통신상태: 중간 🟡"; modeEl.style.color = "#ffeb3b"; pingEl.style.color = "#ffeb3b"; } 
+    else { modeEl.innerText = "통신상태: 나쁨 🔴"; modeEl.style.color = "#ff4444"; pingEl.style.color = "#ff4444"; }
   }
 
   socket.on('ping-res', t => updatePing(Date.now() - t));
@@ -259,10 +307,7 @@
   setInterval(() => {
     if(!window.currentRoom) return;
     let p2pActive = false;
-    for(const p in peers) {
-      if(peers[p].dataChannel && peers[p].dataChannel.readyState === 'open') p2pActive = true;
-    }
-    
+    for(const p in peers) { if(peers[p].dataChannel && peers[p].dataChannel.readyState === 'open') p2pActive = true; }
     const now = Date.now();
     if(p2pActive) {
       for(const p in peers) {
@@ -277,10 +322,7 @@
   function setupPeerConnection(peerId, initiate) {
     const pc = new RTCPeerConnection(rtcConfig);
     peers[peerId] = { pc: pc, dataChannel: null };
-
-    pc.onicecandidate = event => {
-      if (event.candidate) socket.emit('webrtc-signal', { to: peerId, signal: { candidate: event.candidate } });
-    };
+    pc.onicecandidate = event => { if (event.candidate) socket.emit('webrtc-signal', { to: peerId, signal: { candidate: event.candidate } }); };
 
     const setupDataChannel = (channel) => {
       peers[peerId].dataChannel = channel;
@@ -288,70 +330,4 @@
         const data = JSON.parse(event.data);
         if(typeof data[0] === 'string') {
           if(data[0] === 'ping') channel.send(JSON.stringify(['pong', data[1]]));
-          else if(data[0] === 'pong') updatePing(Date.now() - data[1]);
-          return;
-        }
-        const [s, n, v] = data;
-        echoBlock[`${s}-${n}`] = Date.now(); 
-        if(s===144 && v>0) play(n,v); else stop(n);
-        flash(peerId);
-        midiOutputs.forEach(output => { try { output.send([s, n, v]); } catch(e) {} });
-      };
-    };
-
-    if (initiate) {
-      const dc = pc.createDataChannel('midi');
-      setupDataChannel(dc);
-      pc.createOffer().then(offer => pc.setLocalDescription(offer))
-        .then(() => socket.emit('webrtc-signal', { to: peerId, signal: { offer: pc.localDescription } }));
-    } else {
-      pc.ondatachannel = event => setupDataChannel(event.channel);
-    }
-  }
-
-  socket.on('user-joined', user => { addU(user); setupPeerConnection(user.id, true); });
-
-  socket.on('webrtc-signal', async data => {
-    const { from, signal } = data;
-    if (!peers[from]) setupPeerConnection(from, false);
-    const pc = peers[from].pc;
-    if (signal.offer) {
-      await pc.setRemoteDescription(new RTCSessionDescription(signal.offer));
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-      socket.emit('webrtc-signal', { to: from, signal: { answer: pc.localDescription } });
-    } else if (signal.answer) {
-      await pc.setRemoteDescription(new RTCSessionDescription(signal.answer));
-    } else if (signal.candidate) {
-      await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
-    }
-  });
-
-  function upd(us) { document.getElementById('users').innerHTML=''; us.forEach(addU); }
-  function addU(u) {
-    if(document.getElementById('u-'+u.id)) return;
-    const d = document.createElement('div');
-    d.className = 'u-card'; d.id='u-'+u.id; 
-    d.innerHTML=`<span class="u-dot" id="d-${u.id}"></span>${u.name}`;
-    document.getElementById('users').appendChild(d);
-  }
-  function flash(id) {
-    const d = document.getElementById('d-'+id);
-    if(d) { d.classList.add('act'); setTimeout(()=>d.classList.remove('act'), 100); }
-  }
-  
-  if(navigator.requestMIDIAccess) {
-    navigator.requestMIDIAccess().then(m => { 
-      for(let i of m.inputs.values()) {
-        i.onmidimessage = e => {
-          const [s, n, v] = e.data;
-          if (echoBlock[`${s}-${n}`] && Date.now() - echoBlock[`${s}-${n}`] < 100) return;
-          tx(s, n, v);
-        };
-      }
-      for(let o of m.outputs.values()) midiOutputs.push(o);
-    });
-  }
-</script>
-</body>
-</html>
+          else if(data[0] === 'pong')
