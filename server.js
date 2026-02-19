@@ -1,6 +1,6 @@
 /**
- * Remote Piano Server v1.0.7
- * 변경점: 로컬 사운드 온오프 기능 지원을 위한 버전 업데이트
+ * Remote Piano Server v1.0.9
+ * 변경점: 페달 로직 안정화 및 시각적 피드백 강화
  */
 const express = require('express');
 const app = express();
@@ -61,4 +61,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => { console.log(`🚀 v1.0.7 서버 실행 중`); });
+server.listen(PORT, () => { console.log(`🚀 v1.0.9 서버 실행 중`); });
