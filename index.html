@@ -7,37 +7,41 @@
   <style>
     body { background:#111; color:#fff; display:flex; flex-direction:column; height:100vh; margin:0; overflow:hidden; font-family:sans-serif; touch-action:none; user-select:none; -webkit-user-select:none; }
     
-    header { padding:15px 25px; display:flex; flex-direction:column; gap:15px; background:#1a1a1a; border-bottom:1px solid #333; z-index:10; box-shadow:0 4px 10px rgba(0,0,0,0.5); }
-    .header-top { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; }
-    .logo { font-size:22px; font-weight:bold; color:#0f8; letter-spacing:1px; }
+    header { padding:20px 25px; display:flex; flex-direction:column; gap:20px; background:#1a1a1a; border-bottom:1px solid #333; z-index:10; box-shadow:0 4px 10px rgba(0,0,0,0.5); }
+    .header-top { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:15px; }
+    .logo { font-size:24px; font-weight:bold; color:#0f8; letter-spacing:1px; }
     
     .control-group { display:flex; gap:10px; align-items:center; }
-    input { padding:10px 15px; background:#222; border:1px solid #444; color:#fff; border-radius:5px; font-size:14px; outline:none; transition:0.2s; }
-    input:focus { border-color:#0f8; }
-    input[readonly] { color:#0f8; font-weight:bold; cursor:not-allowed; } 
+    input { padding:12px 15px; background:#222; border:1px solid #444; color:#fff; border-radius:6px; font-size:14px; outline:none; transition:0.2s; width:140px; }
+    input:focus { border-color:#0f8; box-shadow: 0 0 5px rgba(0,255,136,0.3); }
+    input[readonly] { color:#0f8; font-weight:bold; cursor:not-allowed; background:#151515; } 
     
-    button { padding:10px 20px; border:none; border-radius:5px; font-weight:bold; font-size:14px; cursor:pointer; transition:0.2s; }
+    button { padding:12px 22px; border:none; border-radius:6px; font-weight:bold; font-size:14px; cursor:pointer; transition:0.2s; }
     .btn-create { background:#0f8; color:#000; } 
-    .btn-create:hover { background:#0c6; }
+    .btn-create:hover { background:#0c6; transform:translateY(-1px); }
     .btn-join { background:#0ea5e9; color:#fff; } 
-    .btn-join:hover { background:#0284c7; }
+    .btn-join:hover { background:#0284c7; transform:translateY(-1px); }
     .btn-leave { background:#ff4444; color:#fff; }
     .btn-leave:hover { background:#cc0000; }
 
-    .room-tag { padding:8px 18px; background:#2a2a2a; border:1px solid #444; border-radius:20px; cursor:pointer; font-size:13px; font-weight:bold; color:#ccc; transition:0.2s; box-shadow:0 2px 4px rgba(0,0,0,0.3); }
-    .room-tag:hover { background:#0f8; color:#000; border-color:#0f8; transform:translateY(-1px); }
+    /* 방 목록 (방 만들기 하단 배치) */
+    .lobby-area { display:flex; gap:15px; align-items:center; }
+    .lobby-label { color:#888; font-size:13px; font-weight:bold; white-space:nowrap; }
+    #active-rooms { display:flex; gap:10px; flex-wrap:wrap; }
+    .room-tag { padding:6px 15px; background:#2a2a2a; border:1px solid #444; border-radius:15px; cursor:pointer; font-size:13px; color:#ccc; transition:0.2s; }
+    .room-tag:hover { background:#333; border-color:#0f8; color:#0f8; }
 
-    .status-wrap { display:flex; align-items:center; gap:15px; background:rgba(0,0,0,0.5); padding:8px 15px; border-radius:10px; border:1px solid #333; }
-    .net-info { text-align:right; display:flex; flex-direction:column; gap:3px; }
-    #net-mode { font-size:13px; font-weight:bold; color:#888; }
-    #net-ping { font-size:15px; font-weight:bold; color:#888; font-family:monospace; }
+    .status-wrap { display:flex; align-items:center; gap:15px; background:rgba(0,0,0,0.6); padding:8px 18px; border-radius:10px; border:1px solid #333; }
+    .net-info { text-align:right; display:flex; flex-direction:column; gap:2px; }
+    #net-mode { font-size:12px; font-weight:bold; }
+    #net-ping { font-size:14px; font-weight:bold; font-family:monospace; }
     
-    #users { padding:20px; display:flex; gap:20px; flex-wrap:wrap; justify-content:center; min-height:40px; }
-    .u-card { background:#2a2a2a; padding:12px 25px; border-radius:30px; display:flex; align-items:center; gap:10px; border:1px solid #555; font-size:18px; font-weight:bold; box-shadow:0 4px 6px rgba(0,0,0,0.3); }
-    .u-dot { width:12px; height:12px; background:#555; border-radius:50%; transition:0.1s; }
-    .u-dot.act { background:#0f8; box-shadow:0 0 10px #0f8; transform:scale(1.3); }
+    #users { padding:15px; display:flex; gap:15px; flex-wrap:wrap; justify-content:center; min-height:50px; }
+    .u-card { background:#252525; padding:10px 20px; border-radius:25px; display:flex; align-items:center; gap:10px; border:1px solid #444; font-size:16px; font-weight:bold; }
+    .u-dot { width:10px; height:10px; background:#444; border-radius:50%; }
+    .u-dot.act { background:#0f8; box-shadow:0 0 8px #0f8; transform:scale(1.2); }
     
-    #piano { flex:1; display:flex; align-items:flex-start; padding-top:60px; justify-content:center; position:relative; overflow-x:auto; background:linear-gradient(to bottom, #111, #050505); }
+    #piano { flex:1; display:flex; align-items:flex-start; padding-top:40px; justify-content:center; position:relative; overflow-x:auto; background:linear-gradient(to bottom, #111, #000); }
     
     .k { position:relative; border-radius:0 0 5px 5px; cursor:pointer; transition:background 0.05s; -webkit-user-drag:none; }
     .w { width:38px; height:240px; background:#fff; border:1px solid #ccc; z-index:1; }
@@ -53,18 +57,18 @@
     <div class="logo">🎹 Remote Piano</div>
     
     <div class="control-group" id="login-form">
-      <input id="rn" placeholder="새 방 이름" autocomplete="off">
-      <input id="pw" type="password" placeholder="비밀번호(4자리)" maxlength="4" autocomplete="off">
+      <input id="rn" placeholder="방 이름" autocomplete="off">
+      <input id="pw" type="text" placeholder="비밀번호(4자리)" maxlength="4" autocomplete="off" oninput="this.value=this.value.replace(/[^0-9]/g,'')">
       <input id="nm" placeholder="닉네임" autocomplete="off">
       <button id="btn-action" class="btn-create" onclick="createRoom()">방 만들기</button>
       <button id="btn-cancel" class="btn-leave" style="display:none;" onclick="resetLobbyMode()">취소</button>
     </div>
     
     <div class="control-group" id="connected-ui" style="display:none;">
-      <div id="room-name-display" style="font-weight:bold; color:#0f8; font-size:16px; margin-right:15px; letter-spacing:1px;"></div>
-      <div class="status-wrap" id="dash">
+      <div id="room-name-display" style="font-weight:bold; color:#0f8; font-size:18px; margin-right:10px;"></div>
+      <div class="status-wrap">
         <div class="net-info">
-          <div id="net-mode">대기중...</div>
+          <div id="net-mode">연결 대기중</div>
           <div id="net-ping">-- ms</div>
         </div>
       </div>
@@ -72,10 +76,10 @@
     </div>
   </div>
 
-  <div id="room-list-wrap" style="display:flex; gap:15px; align-items:center; padding-top:10px; border-top:1px dashed #333;">
-    <span style="color:#888; font-size:13px; font-weight:bold; white-space:nowrap;">🟢 현재 열려있는 방:</span>
-    <div id="active-rooms" style="display:flex; gap:10px; flex-wrap:wrap;">
-      <span style="color:#555; font-size:13px;">방이 없습니다. 이름을 적고 새로 만들어보세요!</span>
+  <div class="lobby-area" id="lobby-wrap">
+    <span class="lobby-label">🟢 열려있는 방:</span>
+    <div id="active-rooms">
+      <span style="color:#444; font-size:13px;">진행 중인 방이 없습니다.</span>
     </div>
   </div>
 </header>
@@ -93,24 +97,21 @@
   const peers = {}; 
   const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }; 
 
+  // 오디오 엔진
   function play(n, v) {
     if(oscs[n]) stop(n);
     const o = audio.createOscillator();
     const g = audio.createGain();
     o.type = 'triangle';
     o.frequency.value = 440 * Math.pow(2, (n-69)/12);
-    const vol = (v/127) * 0.5;
-    
+    const vol = (v/127) * 0.4;
     g.gain.setValueAtTime(0, audio.currentTime);
     g.gain.linearRampToValueAtTime(vol, audio.currentTime + 0.005); 
     g.gain.exponentialRampToValueAtTime(vol * 0.1, audio.currentTime + 1.5);
-    
     o.connect(g); g.connect(audio.destination);
     o.start();
     oscs[n]=o; gains[n]=g;
-    
-    const k = document.getElementById('k'+n);
-    if(k) k.classList.add('on');
+    document.getElementById('k'+n)?.classList.add('on');
   }
 
   function stop(n) {
@@ -122,9 +123,7 @@
     const o = oscs[n];
     setTimeout(()=>{ if(o) { o.stop(); o.disconnect(); } }, 40);
     delete oscs[n]; delete gains[n];
-    
-    const k = document.getElementById('k'+n);
-    if(k) k.classList.remove('on');
+    document.getElementById('k'+n)?.classList.remove('on');
   }
 
   function tx(s, n, v) {
@@ -140,7 +139,7 @@
     if (!sentP2P && window.currentRoom) socket.emit('midi-msg', { roomName: window.currentRoom, msg: [s, n, v] });
   }
 
-  // 피아노 건반 생성
+  // 피아노 생성
   const p = document.getElementById('piano');
   for(let i=21; i<=108; i++) {
     const isB = [1,3,6,8,10].includes(i%12);
@@ -150,17 +149,16 @@
     p.appendChild(d);
   }
 
-  // 마우스 및 터치 이벤트 로직 (고스트 노트 방지)
+  // 마우스/터치 로직
   let activeMouseKey = null;
   p.addEventListener('mousedown', (e) => {
     const k = e.target.closest('.k');
-    if(k) { e.preventDefault(); const note = parseInt(k.id.replace('k','')); if(activeMouseKey && activeMouseKey !== note) tx(128, activeMouseKey, 0); activeMouseKey = note; tx(144, note, 100); }
+    if(k) { e.preventDefault(); const note = parseInt(k.id.replace('k','')); activeMouseKey = note; tx(144, note, 100); }
   });
   p.addEventListener('mouseover', (e) => {
     const k = e.target.closest('.k');
     if(k && e.buttons === 1) { const note = parseInt(k.id.replace('k','')); if(activeMouseKey && activeMouseKey !== note) tx(128, activeMouseKey, 0); activeMouseKey = note; tx(144, note, 100); }
   });
-  p.addEventListener('mouseleave', () => { if(activeMouseKey) { tx(128, activeMouseKey, 0); activeMouseKey = null; } });
   document.addEventListener('mouseup', () => { if(activeMouseKey) { tx(128, activeMouseKey, 0); activeMouseKey = null; } });
 
   const activeTouches = {};
@@ -174,18 +172,15 @@
       const elem = document.elementFromPoint(touch.clientX, touch.clientY);
       const prevNote = activeTouches[touch.identifier];
       if (elem && elem.classList.contains('k')) { const currentNote = parseInt(elem.id.replace('k','')); if (prevNote !== currentNote) { if (prevNote) tx(128, prevNote, 0); activeTouches[touch.identifier] = currentNote; tx(144, currentNote, 100); } } 
-      else { if (prevNote) { tx(128, prevNote, 0); delete activeTouches[touch.identifier]; } }
     }
   }, {passive: false});
   const handleTouchEnd = (e) => { e.preventDefault(); for (let touch of e.changedTouches) { const prevNote = activeTouches[touch.identifier]; if (prevNote) { tx(128, prevNote, 0); delete activeTouches[touch.identifier]; } } };
   p.addEventListener('touchend', handleTouchEnd, {passive: false});
-  p.addEventListener('touchcancel', handleTouchEnd, {passive: false});
 
-  // 로비 UI 로직
+  // 로비 로직
   socket.on('room-list', rooms => {
     const container = document.getElementById('active-rooms');
-    if(!container) return;
-    if(rooms.length === 0) { container.innerHTML = '<span style="color:#555; font-size:13px;">방이 없습니다. 이름을 적고 새로 만들어보세요!</span>'; return; }
+    if(rooms.length === 0) { container.innerHTML = '<span style="color:#444; font-size:13px;">진행 중인 방이 없습니다.</span>'; return; }
     container.innerHTML = '';
     rooms.forEach(r => { const btn = document.createElement('div'); btn.className = 'room-tag'; btn.innerText = r; btn.onclick = () => selectRoom(r); container.appendChild(btn); });
   });
@@ -203,16 +198,16 @@
 
   function validateInput() {
     const r = document.getElementById('rn').value.trim(), pw = document.getElementById('pw').value.trim(), n = document.getElementById('nm').value.trim();
-    if(!r || !pw || !n) { alert("방 이름, 비밀번호, 닉네임을 모두 채워주세요!"); return null; }
-    if(!/^\d{4}$/.test(pw)) { alert("비밀번호는 숫자 4자리로만 입력해야 합니다!"); return null; }
+    if(!r || !pw || !n) { alert("빈칸을 모두 채워주세요!"); return null; }
+    if(!/^\d{4}$/.test(pw)) { alert("비밀번호는 숫자 4자리여야 합니다."); return null; }
     return { r, pw, n };
   }
 
-  function createRoom() { const data = validateInput(); if(!data) return; if(audio.state==='suspended') audio.resume(); socket.emit('create-room', { roomName: data.r, userName: data.n, password: data.pw }); window.currentRoom = data.r; }
-  function joinRoom() { const data = validateInput(); if(!data) return; if(audio.state==='suspended') audio.resume(); socket.emit('join-room', { roomName: data.r, userName: data.n, password: data.pw }); window.currentRoom = data.r; }
+  function createRoom() { const data = validateInput(); if(!data) return; socket.emit('create-room', { roomName: data.r, userName: data.n, password: data.pw }); window.currentRoom = data.r; }
+  function joinRoom() { const data = validateInput(); if(!data) return; socket.emit('join-room', { roomName: data.r, userName: data.n, password: data.pw }); window.currentRoom = data.r; }
 
   socket.on('join-success', d => {
-    document.getElementById('login-form').style.display = 'none'; document.getElementById('room-list-wrap').style.display = 'none'; 
+    document.getElementById('login-form').style.display = 'none'; document.getElementById('lobby-wrap').style.display = 'none'; 
     document.getElementById('connected-ui').style.display = 'flex'; document.getElementById('room-name-display').innerText = `[ ${d.roomName} ]`; upd(d.users);
   });
   socket.on('error-msg', m => { alert(m); window.currentRoom = null; });
@@ -220,40 +215,26 @@
   socket.on('remote-midi', d => { const [s,n,v] = d.msg; echoBlock[`${s}-${n}`] = Date.now(); if(s===144 && v>0) play(n,v); else stop(n); flash(d.id); midiOutputs.forEach(output => { try { output.send([s, n, v]); } catch(e) {} }); });
   socket.on('user-activity', d => flash(d.id));
 
-  // --------------------------------------------------------
-  // ⚡ 네트워크 상태 표시 로직 수정 (텍스트 직관화)
-  // --------------------------------------------------------
+  // 네트워크 상태
   function updatePing(ms) {
     const pingEl = document.getElementById('net-ping');
+    const modeEl = document.getElementById('net-mode');
     pingEl.innerText = ms + " ms";
-    // 숫자의 색상만 레이턴시에 따라 변경 (좋음/나쁨 텍스트 제거)
-    if(ms < 50) { pingEl.style.color = "#0f8"; } 
-    else if(ms < 150) { pingEl.style.color = "#ffeb3b"; } 
-    else { pingEl.style.color = "#ff4444"; }
+    pingEl.style.color = ms < 50 ? "#0f8" : (ms < 150 ? "#ffeb3b" : "#ff4444");
   }
 
   socket.on('ping-res', t => updatePing(Date.now() - t));
-
   setInterval(() => {
     if(!window.currentRoom) return;
     let p2pActive = false;
     for(const p in peers) { if(peers[p].dataChannel && peers[p].dataChannel.readyState === 'open') p2pActive = true; }
-    
     const modeEl = document.getElementById('net-mode');
-    const now = Date.now();
-    
-    // 통신 상태 텍스트 명확하게 변경
     if(p2pActive) {
-      modeEl.innerText = "직통연결 ⚡";
-      modeEl.style.color = "#0f8"; // 직통은 초록색 글씨
-      for(const p in peers) {
-        const dc = peers[p].dataChannel;
-        if(dc && dc.readyState === 'open') dc.send(JSON.stringify(['ping', now]));
-      }
+      modeEl.innerText = "직통연결 ⚡"; modeEl.style.color = "#0f8";
+      for(const p in peers) { const dc = peers[p].dataChannel; if(dc && dc.readyState === 'open') dc.send(JSON.stringify(['ping', Date.now()])); }
     } else {
-      modeEl.innerText = "우회연결 ☁️";
-      modeEl.style.color = "#ffb74d"; // 우회는 주황색 글씨
-      socket.emit('ping-req', now);
+      modeEl.innerText = "우회연결 ☁️"; modeEl.style.color = "#ffb74d";
+      socket.emit('ping-req', Date.now());
     }
   }, 2000);
 
@@ -264,7 +245,8 @@
       peers[peerId].dataChannel = channel;
       channel.onmessage = event => {
         const data = JSON.parse(event.data);
-        if(typeof data[0] === 'string') { if(data[0] === 'ping') channel.send(JSON.stringify(['pong', data[1]])); else if(data[0] === 'pong') updatePing(Date.now() - data[1]); return; }
+        if(data[0] === 'ping') { channel.send(JSON.stringify(['pong', data[1]])); return; }
+        if(data[0] === 'pong') { updatePing(Date.now() - data[1]); return; }
         const [s, n, v] = data; echoBlock[`${s}-${n}`] = Date.now(); if(s===144 && v>0) play(n,v); else stop(n); flash(peerId); midiOutputs.forEach(output => { try { output.send([s, n, v]); } catch(e) {} });
       };
     };
