@@ -2,40 +2,56 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Remote Piano v1.0.5</title>
+  <title>Remote Piano v1.0.6</title>
   <style>
     body { background:#0a0a0a; color:#fff; margin:0; font-family:sans-serif; height:100vh; display:flex; flex-direction:column; overflow:hidden; }
     header { padding:12px 25px; display:flex; justify-content:space-between; align-items:center; background:#1a1a1a; border-bottom:1px solid #333; }
-    .logo { font-size:20px; font-weight:900; color:#0f8; display:flex; align-items:center; gap:8px; }
-    .version-tag { font-size:10px; background:#333; color:#aaa; padding:2px 6px; border-radius:10px; font-weight:normal; }
-    .auth { display:flex; gap:8px; }
-    input { padding:8px; background:#222; border:1px solid #444; color:#fff; border-radius:4px; width:100px; }
+    .logo { font-size:20px; font-weight:900; color:#0f8; }
+    .version-tag { font-size:10px; background:#333; color:#aaa; padding:2px 6px; border-radius:10px; margin-left:8px; }
+    
+    /* 인증 폼 */
+    .auth { display:flex; gap:8px; align-items:center; }
+    input { padding:8px; background:#222; border:1px solid #444; color:#fff; border-radius:4px; width:100px; outline:none; }
+    input:focus { border-color:#0f8; }
     button { padding:8px 15px; border:none; border-radius:4px; font-weight:bold; cursor:pointer; background:#0f8; color:#000; }
+    
+    /* 방 목록 스타일 */
+    #room-list-container { padding:10px 25px; background:#111; display:flex; gap:10px; overflow-x:auto; border-bottom:1px solid #222; }
+    .room-item { background:#222; padding:5px 12px; border-radius:15px; font-size:12px; cursor:pointer; border:1px solid #333; white-space:nowrap; }
+    .room-item:hover { border-color:#0f8; background:#2a2a2a; }
+
     #connected-ui { display:none; align-items:center; gap:20px; }
-    #users { padding:15px; display:flex; gap:10px; justify-content:center; min-height:40px; }
-    .u-card { background:#222; padding:8px 15px; border-radius:20px; border:1px solid #333; display:flex; align-items:center; gap:8px; font-size:14px; }
-    .u-dot { width:8px; height:8px; background:#444; border-radius:50%; }
-    .u-dot.act { background:#0f8; box-shadow:0 0 8px #0f8; }
-    #piano-wrap { flex:1; display:flex; justify-content:center; align-items:flex-start; padding-top:50px; background:#050505; overflow-x:auto; }
-    .k { position:relative; cursor:pointer; border-radius:0 0 5px 5px; box-shadow: 0 4px 8px rgba(0,0,0,0.6); }
-    .w { width:40px; height:240px; background:linear-gradient(to bottom, #eee, #fff 90%, #ccc); border:1px solid #999; z-index:1; margin-right:-1px; }
-    .w.on { background:linear-gradient(to bottom, #ffcc00, #ff9900) !important; transform:translateY(2px); box-shadow:none; }
-    .b { width:26px; height:140px; background:linear-gradient(to bottom, #333, #000); margin:0 -13px 100px -13px; z-index:2; border:1px solid #000; }
-    .b.on { background:linear-gradient(to bottom, #ccaa00, #886600) !important; transform:translateY(2px); }
+    #users { padding:15px; display:flex; gap:10px; justify-content:center; min-height:45px; }
+    .u-card { background:#222; padding:6px 14px; border-radius:20px; border:1px solid #333; display:flex; align-items:center; gap:8px; font-size:13px; transition:0.2s; }
+    .u-dot { width:8px; height:8px; background:#444; border-radius:50%; transition:0.1s; }
+    .u-dot.act { background:#0f8; box-shadow:0 0 8px #0f8; transform:scale(1.3); }
+
+    /* 건반 */
+    #piano-wrap { flex:1; display:flex; justify-content:center; align-items:flex-start; padding-top:40px; background:#050505; overflow-x:auto; user-select:none; }
+    .k { position:relative; cursor:pointer; border-radius:0 0 5px 5px; }
+    .w { width:38px; height:220px; background:linear-gradient(to bottom, #eee, #fff 95%, #bbb); border:1px solid #888; z-index:1; margin-right:-1px; }
+    .w.on { background:linear-gradient(to bottom, #ffcc00, #ffaa00) !important; transform:translateY(2px); }
+    .b { width:24px; height:130px; background:linear-gradient(to bottom, #444, #000); margin:0 -12px 90px -12px; z-index:2; border:1px solid #000; }
+    .b.on { background:linear-gradient(to bottom, #ccaa00, #997700) !important; transform:translateY(2px); }
   </style>
 </head>
 <body>
+
 <header>
-  <div class="logo"><span>🎹 SESSION</span><span class="version-tag">v1.0.5</span></div>
+  <div class="logo">🎹 SESSION <span class="version-tag">v1.0.6</span></div>
   <div class="auth" id="login-form">
-    <input id="rn" placeholder="Room"> <input id="pw" type="password" placeholder="Pass"> <input id="nm" placeholder="Name">
-    <button onclick="join()">JOIN</button>
+    <input id="rn" placeholder="방이름">
+    <input id="pw" type="text" maxlength="6" placeholder="비번(숫자6)" oninput="this.value=this.value.replace(/[^0-9]/g,'')">
+    <input id="nm" placeholder="내 이름">
+    <button onclick="join()">접속/생성</button>
   </div>
   <div id="connected-ui">
     <div style="text-align:right;"><div id="room-name-display" style="color:#0f8; font-weight:bold;"></div><div id="ping-display" style="color:#888; font-size:12px;">--ms</div></div>
     <button style="background:#ff4444; color:#fff;" onclick="location.reload()">EXIT</button>
   </div>
 </header>
+
+<div id="room-list-container"></div>
 <div id="users"></div>
 <div id="piano-wrap"><div id="piano" style="display:flex;"></div></div>
 
@@ -46,57 +62,63 @@
   const voices = {};
   let midiOuts = [];
   let currentRoomName = "";
-  
-  let isSustainOn = false;
-  let sustainedNotes = new Set();
+  let isMouseDown = false; // 글리산도용 마우스 상태
 
+  // 1. 건반 생성 및 마우스 이벤트 (글리산도 지원)
   const p = document.getElementById('piano');
   for(let i=21; i<=108; i++) {
     const isB = [1,3,6,8,10].includes(i%12);
     const d = document.createElement('div');
     d.id = 'k'+i; d.className = `k ${isB?'b':'w'}`;
-    d.onmousedown = () => tx(144, i, 100);
-    d.onmouseup = () => tx(128, i, 0);
+    
+    d.onmousedown = (e) => { isMouseDown = true; tx(144, i, 100); };
+    d.onmouseenter = (e) => { if(isMouseDown) tx(144, i, 100); };
+    d.onmouseleave = (e) => { if(isMouseDown) tx(128, i, 0); };
+    d.onmouseup = (e) => { isMouseDown = false; tx(128, i, 0); };
+    
     p.appendChild(d);
   }
+  window.onmouseup = () => { isMouseDown = false; };
+
+  // 2. 방 목록 클릭 기능
+  socket.on('room-list', list => {
+    const container = document.getElementById('room-list-container');
+    if (currentRoomName) { container.style.display = 'none'; return; }
+    container.innerHTML = list.length ? '<span style="font-size:12px; color:#666; align-self:center;">열린 방:</span>' : '<span style="font-size:12px; color:#444;">열린 방이 없습니다.</span>';
+    list.forEach(room => {
+      const item = document.createElement('div');
+      item.className = 'room-item';
+      item.innerText = `${room.name} (${room.userCount}명)`;
+      item.onclick = () => { document.getElementById('rn').value = room.name; document.getElementById('pw').focus(); };
+      container.appendChild(item);
+    });
+  });
 
   function join() {
     if(audio.state === 'suspended') audio.resume();
     const r = document.getElementById('rn').value, p = document.getElementById('pw').value, n = document.getElementById('nm').value;
-    if(!r || !p || !n) return alert("입력 확인!");
+    if(!r || p.length !== 6 || !n) return alert("방이름, 비번 6자리, 이름을 확인하세요!");
     currentRoomName = r;
     socket.emit('join-room', { roomName: r, userName: n, password: p });
   }
 
-  function handleSustain(v) {
-    isSustainOn = v >= 64;
-    if (!isSustainOn) {
-      sustainedNotes.forEach(n => stopSound(n));
-      sustainedNotes.clear();
-    }
-  }
+  // --- MIDI 로직 (v1.0.5의 페달 기능 계승) ---
+  let isSustainOn = false;
+  let sustainedNotes = new Set();
 
   function tx(s, n, v) {
-    if (s === 176 && n === 64) handleSustain(v);
-    else if (s === 144 && v > 0) play(n, v);
-    else stopKey(n);
+    if (s === 176 && n === 64) isSustainOn = v >= 64; 
+    if (s === 144 && v > 0) play(n, v); else stopKey(n);
     if(currentRoomName) socket.emit('midi-msg', { roomName: currentRoomName, msg: [s, n, v] });
   }
 
   function play(n, v, remoteId = null) {
     if(audio.state === 'suspended') audio.resume();
-    
-    // 건반 시각화 ON
     document.getElementById('k'+n)?.classList.add('on');
-    
-    // 점등 효과
     const dot = document.getElementById('d-' + (remoteId || socket.id));
     if(dot) { dot.classList.add('act'); setTimeout(()=>dot.classList.remove('act'), 100); }
 
-    // 기존 소리 정지
     if(voices[n]) stopSound(n);
-
-    // 오디오 생성
     const o = audio.createOscillator();
     const g = audio.createGain();
     o.type = 'triangle';
@@ -106,49 +128,44 @@
     o.connect(g); g.connect(audio.destination);
     o.start();
     voices[n] = { o, g };
-    sustainedNotes.delete(n);
   }
 
-  // [중요] v1.0.5 핵심: 건반만 끄는 함수
   function stopKey(n) {
-    document.getElementById('k'+n)?.classList.remove('on'); // 페달 상관없이 불은 즉시 꺼짐
-    if (isSustainOn) {
-      sustainedNotes.add(n); // 페달 중이면 소리 유지 리스트에 추가
-    } else {
-      stopSound(n); // 페달 아니면 소리도 즉시 정지
-    }
+    document.getElementById('k'+n)?.classList.remove('on');
+    if (!isSustainOn) stopSound(n); else sustainedNotes.add(n);
   }
 
-  // 실제 소리를 끄는 함수
   function stopSound(n) {
     if(voices[n]) {
-      const { o, g } = voices[n];
-      g.gain.linearRampToValueAtTime(0, audio.currentTime + 0.15);
-      setTimeout(() => { try { o.stop(); o.disconnect(); } catch(e){} }, 200);
+      voices[n].g.gain.linearRampToValueAtTime(0, audio.currentTime + 0.1);
+      const target = voices[n].o;
+      setTimeout(() => { try { target.stop(); target.disconnect(); } catch(e){} }, 200);
       delete voices[n];
     }
   }
 
   socket.on('join-success', d => {
     document.getElementById('login-form').style.display = 'none';
+    document.getElementById('room-list-container').style.display = 'none';
     document.getElementById('connected-ui').style.display = 'flex';
     document.getElementById('room-name-display').innerText = d.roomName;
     upd(d.users);
   });
+
   socket.on('update-users', us => upd(us));
   socket.on('error-msg', m => alert(m));
-  
+
   socket.on('remote-midi', d => {
     const [s, n, v] = d.msg;
-    if (s === 176 && n === 64) handleSustain(v);
+    if (s === 176 && n === 64) isSustainOn = v >= 64;
     else if (s === 144 && v > 0) play(n, v, d.id);
-    else stopKey(n); // 원격 유저가 뗄 때도 건반 불은 즉시 꺼지게
+    else stopKey(n); // 상대방이 칠 때도 내 화면 건반이 눌림
     midiOuts.forEach(out => out.send([s, n, v]));
   });
 
   socket.on('ping-res', t => { document.getElementById('ping-display').innerText = (Date.now()-t)+"ms"; });
   setInterval(() => { if(currentRoomName) socket.emit('ping-req', Date.now()); }, 2000);
-  
+
   function upd(us) {
     const c = document.getElementById('users'); c.innerHTML = '';
     us.forEach(u => {
@@ -157,7 +174,7 @@
       c.appendChild(d);
     });
   }
-  
+
   if(navigator.requestMIDIAccess) {
     navigator.requestMIDIAccess().then(m => {
       for(let i of m.inputs.values()) i.onmidimessage = e => tx(e.data[0], e.data[1], e.data[2]);
