@@ -5,36 +5,34 @@
   <title>Remote Piano Session</title>
   <style>
     body { background:#0a0a0a; color:#fff; margin:0; font-family:sans-serif; height:100vh; display:flex; flex-direction:column; overflow:hidden; }
-    header { padding:12px 20px; display:flex; justify-content:space-between; align-items:center; background:#1a1a1a; border-bottom:1px solid #333; z-index:100; }
-    .logo { font-size:18px; font-weight:900; color:#0f8; letter-spacing:1px; }
+    header { padding:12px 25px; display:flex; justify-content:space-between; align-items:center; background:#1a1a1a; border-bottom:1px solid #333; }
+    .logo { font-size:20px; font-weight:900; color:#0f8; }
     
-    /* 로그인 폼 */
+    /* 접속 전 UI */
     .auth { display:flex; gap:8px; }
-    input { padding:8px 12px; background:#222; border:1px solid #444; color:#fff; border-radius:4px; width:90px; font-size:13px; }
-    button { padding:8px 16px; border:none; border-radius:4px; font-weight:bold; cursor:pointer; background:#0f8; color:#000; transition: 0.2s; }
-    button:hover { background:#0c7; }
+    input { padding:8px; background:#222; border:1px solid #444; color:#fff; border-radius:4px; width:100px; }
+    button { padding:8px 15px; border:none; border-radius:4px; font-weight:bold; cursor:pointer; background:#0f8; color:#000; }
 
-    /* 접속 후 UI (상태표시 및 나가기) */
-    #connected-ui { display:none; align-items:center; gap:15px; }
-    .status-box { text-align:right; line-height:1.2; }
+    /* 접속 후 UI (상태바 및 나가기) */
+    #connected-ui { display:none; align-items:center; gap:20px; }
+    .status-text { text-align:right; line-height:1.2; }
     #room-name-display { color:#0f8; font-weight:bold; font-size:14px; }
     #ping-display { color:#888; font-size:12px; font-family:monospace; }
     .btn-exit { background:#ff4444; color:#fff; }
-    .btn-exit:hover { background:#cc3333; }
-    
-    /* 유저 목록 */
-    #users { padding:15px; display:flex; gap:10px; justify-content:center; min-height:45px; flex-wrap:wrap; }
-    .u-card { background:#222; padding:6px 14px; border-radius:20px; border:1px solid #333; display:flex; align-items:center; gap:8px; font-size:13px; }
-    .u-dot { width:8px; height:8px; background:#444; border-radius:50%; transition:0.1s; }
-    .u-dot.active { background:#0f8; box-shadow:0 0 8px #0f8; transform:scale(1.3); }
 
-    /* 건반 디자인 */
-    #piano-wrap { flex:1; display:flex; justify-content:center; align-items:flex-start; padding-top:40px; background:#050505; overflow-x:auto; padding-bottom:20px; }
-    .k { position:relative; cursor:pointer; border-radius:0 0 5px 5px; box-shadow: 0 4px 8px rgba(0,0,0,0.6); user-select:none; }
-    .w { width:38px; height:220px; background:linear-gradient(to bottom, #eee, #fff 95%, #bbb); border:1px solid #888; z-index:1; margin-right:-1px; }
-    .w.on { background:linear-gradient(to bottom, #ffcc00, #ffaa00) !important; transform:translateY(2px); box-shadow:none; }
-    .b { width:24px; height:130px; background:linear-gradient(to bottom, #444, #000); margin:0 -12px 90px -12px; z-index:2; border:1px solid #000; }
-    .b.on { background:linear-gradient(to bottom, #ccaa00, #997700) !important; transform:translateY(2px); }
+    /* 유저 목록 */
+    #users { padding:15px; display:flex; gap:10px; justify-content:center; min-height:40px; }
+    .u-card { background:#222; padding:8px 15px; border-radius:20px; border:1px solid #333; display:flex; align-items:center; gap:8px; font-size:14px; }
+    .u-dot { width:8px; height:8px; background:#444; border-radius:50%; transition:0.1s; }
+    .u-dot.act { background:#0f8; box-shadow:0 0 8px #0f8; transform:scale(1.2); }
+
+    /* 건반 */
+    #piano-wrap { flex:1; display:flex; justify-content:center; align-items:flex-start; padding-top:50px; background:#050505; overflow-x:auto; }
+    .k { position:relative; cursor:pointer; border-radius:0 0 5px 5px; box-shadow: 0 5px 10px rgba(0,0,0,0.5); }
+    .w { width:40px; height:240px; background:linear-gradient(to bottom, #eee, #fff 90%, #ccc); border:1px solid #999; z-index:1; margin-right:-1px; }
+    .w.on { background:linear-gradient(to bottom, #ffcc00, #ff9900) !important; }
+    .b { width:26px; height:140px; background:linear-gradient(to bottom, #333, #000); margin:0 -13px 100px -13px; z-index:2; border:1px solid #000; }
+    .b.on { background:linear-gradient(to bottom, #ccaa00, #886600) !important; }
   </style>
 </head>
 <body>
@@ -43,25 +41,23 @@
   <div class="logo">🎹 SESSION</div>
   
   <div class="auth" id="login-form">
-    <input id="rn" placeholder="방이름">
-    <input id="pw" type="password" placeholder="비번">
-    <input id="nm" placeholder="이름">
-    <button onclick="join()">접속</button>
+    <input id="rn" placeholder="Room">
+    <input id="pw" type="password" placeholder="Pass">
+    <input id="nm" placeholder="Name">
+    <button onclick="join()">JOIN</button>
   </div>
 
   <div id="connected-ui">
-    <div class="status-box">
+    <div class="status-text">
       <div id="room-name-display"></div>
       <div id="ping-display">지연시간: --ms</div>
     </div>
-    <button class="btn-exit" onclick="exitRoom()">나가기</button>
+    <button class="btn-exit" onclick="location.reload()">EXIT</button>
   </div>
 </header>
 
 <div id="users"></div>
-<div id="piano-wrap">
-  <div id="piano" style="display:flex;"></div>
-</div>
+<div id="piano-wrap"><div id="piano" style="display:flex;"></div></div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
@@ -72,32 +68,25 @@
   let currentRoomName = "";
 
   // 1. 건반 생성
-  const pianoDiv = document.getElementById('piano');
+  const p = document.getElementById('piano');
   for(let i=21; i<=108; i++) {
     const isB = [1,3,6,8,10].includes(i%12);
-    const key = document.createElement('div');
-    key.id = 'k'+i; key.className = `k ${isB?'b':'w'}`;
-    key.onmousedown = (e) => { e.preventDefault(); tx(144, i, 100); };
-    key.onmouseup = () => tx(128, i, 0);
-    key.onmouseleave = () => { if(voices[i]) tx(128, i, 0); };
-    pianoDiv.appendChild(key);
+    const d = document.createElement('div');
+    d.id = 'k'+i; d.className = `k ${isB?'b':'w'}`;
+    d.onmousedown = () => tx(144, i, 100);
+    d.onmouseup = () => tx(128, i, 0);
+    p.appendChild(d);
   }
 
-  // 2. 접속 및 나가기 기능
+  // 2. 접속 및 통신 로직
   function join() {
     if(audio.state === 'suspended') audio.resume();
     const r = document.getElementById('rn').value, p = document.getElementById('pw').value, n = document.getElementById('nm').value;
-    if(!r || !p || !n) return alert("모든 항목을 입력해주세요!");
-    
+    if(!r || !p || !n) return alert("빈칸을 입력하세요!");
     currentRoomName = r;
     socket.emit('join-room', { roomName: r, userName: n, password: p });
   }
 
-  function exitRoom() {
-    location.reload(); // 가장 깔끔한 초기화 방법
-  }
-
-  // 3. 통신 및 연주 로직
   function tx(s, n, v) {
     if(s === 144 && v > 0) play(n, v); else stop(n);
     if(currentRoomName) socket.emit('midi-msg', { roomName: currentRoomName, msg: [s, n, v] });
@@ -106,10 +95,8 @@
   function play(n, v, remoteId = null) {
     if(audio.state === 'suspended') audio.resume();
     document.getElementById('k'+n)?.classList.add('on');
-    
-    // 연주 시 점등 효과
     const dot = document.getElementById('d-' + (remoteId || socket.id));
-    if(dot) { dot.classList.add('active'); setTimeout(()=>dot.classList.remove('active'), 100); }
+    if(dot) { dot.classList.add('act'); setTimeout(()=>dot.classList.remove('act'), 100); }
 
     if(voices[n]) stop(n);
     const o = audio.createOscillator();
@@ -117,7 +104,7 @@
     o.type = 'triangle';
     o.frequency.value = 440 * Math.pow(2, (n-69)/12);
     g.gain.setValueAtTime((v/127)*0.3, audio.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.01, audio.currentTime + 1.5);
+    g.gain.exponentialRampToValueAtTime(0.01, audio.currentTime + 2);
     o.connect(g); g.connect(audio.destination);
     o.start();
     voices[n] = { o, g };
@@ -126,14 +113,14 @@
   function stop(n) {
     document.getElementById('k'+n)?.classList.remove('on');
     if(voices[n]) {
-      const { o, g } = voices[n];
-      g.gain.linearRampToValueAtTime(0, audio.currentTime + 0.1);
-      setTimeout(() => { try { o.stop(); o.disconnect(); } catch(e){} }, 150);
+      voices[n].g.gain.linearRampToValueAtTime(0, audio.currentTime + 0.1);
+      const targetOsc = voices[n].o;
+      setTimeout(() => { try { targetOsc.stop(); targetOsc.disconnect(); } catch(e){} }, 150);
       delete voices[n];
     }
   }
 
-  // 4. 소켓 리스너
+  // 3. 소켓 이벤트 (UI 전환 핵심)
   socket.on('join-success', d => {
     document.getElementById('login-form').style.display = 'none';
     document.getElementById('connected-ui').style.display = 'flex';
@@ -147,13 +134,11 @@
   socket.on('remote-midi', d => {
     const [s, n, v] = d.msg;
     if(s === 144 && v > 0) play(n, v, d.id); else stop(n);
-    midiOuts.forEach(out => out.send([s, n, v])); // 로직(MIDI 출력)으로 전송
+    midiOuts.forEach(out => out.send([s, n, v])); // 로직 전송
   });
 
-  // 핑(Ping) 체크 로직
   socket.on('ping-res', t => {
-    const ms = Date.now() - t;
-    document.getElementById('ping-display').innerText = `지연시간: ${ms}ms`;
+    document.getElementById('ping-display').innerText = `지연시간: ${Date.now() - t}ms`;
   });
   setInterval(() => { if(currentRoomName) socket.emit('ping-req', Date.now()); }, 2000);
 
@@ -166,17 +151,11 @@
     });
   }
 
-  // 5. MIDI 장치 연결 (입력/출력)
+  // 4. MIDI 연결
   if(navigator.requestMIDIAccess) {
     navigator.requestMIDIAccess().then(m => {
-      for(let input of m.inputs.values()) {
-        input.onmidimessage = e => tx(e.data[0], e.data[1], e.data[2]);
-      }
-      for(let output of m.outputs.values()) {
-        if(output.name.includes("IAC") || output.name.includes("Bus") || output.name.includes("Logic")) {
-          midiOuts.push(output);
-        }
-      }
+      for(let i of m.inputs.values()) i.onmidimessage = e => tx(e.data[0], e.data[1], e.data[2]);
+      for(let o of m.outputs.values()) if(o.name.includes("IAC") || o.name.includes("Bus")) midiOuts.push(o);
     });
   }
 </script>
