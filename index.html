@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Remote Piano v1.1.2</title>
+  <title>Remote Piano v1.1.3</title>
   <style>
     body { background:#0a0a0a; color:#fff; margin:0; font-family:sans-serif; height:100vh; display:flex; flex-direction:column; overflow:hidden; }
     header { padding:0 25px; height:70px; display:flex; justify-content:space-between; align-items:center; background:#1a1a1a; border-bottom:1px solid #333; position:relative; }
@@ -33,7 +33,7 @@
 <body>
 
 <header>
-  <div class="logo">🎹 SESSION <span class="version-tag">v1.1.2</span></div>
+  <div class="logo">🎹 SESSION <span class="version-tag">v1.1.3</span></div>
   <div id="room-display-center" style="display:none;"><div id="room-name-big"></div><div id="ping-small">--ms</div></div>
   <div class="controls">
     <button id="sound-btn" class="sound-toggle on" onclick="toggleSound()">SOUND ON</button>
@@ -47,7 +47,7 @@
   </div>
 </header>
 
-<div id="room-list-container" style="padding:10px 25px; background:#111; display:flex; gap:10px; overflow-x:auto; border-bottom:1px solid #222;"></div>
+<div id="room-list-container" style="padding:10px 25px; background:#111; display:flex; gap:10px; overflow-x:auto; border-bottom:1px solid #222; min-height:20px;"></div>
 <div id="users"></div>
 <div id="piano-wrap"><div id="piano" style="display:flex;"></div></div>
 
@@ -61,6 +61,7 @@
   let isLocalSoundEnabled = true;
   let isSustainOn = false;
   let sustainedNotes = new Set();
+  let lastRoomListData = "";
 
   function toggleSound() {
     isLocalSoundEnabled = !isLocalSoundEnabled;
@@ -80,9 +81,15 @@
     p.appendChild(d);
   }
 
+  // [깜빡임 방지] 데이터가 같으면 방 목록을 새로 그리지 않음
   socket.on('room-list', list => {
     const container = document.getElementById('room-list-container');
     if (currentRoomName) { container.style.display = 'none'; return; }
+    
+    const currentData = JSON.stringify(list);
+    if (lastRoomListData === currentData) return;
+    lastRoomListData = currentData;
+
     container.innerHTML = list.length ? '<span style="font-size:12px; color:#666; align-self:center;">OPEN ROOMS:</span>' : '';
     list.forEach(room => {
       const item = document.createElement('div');
@@ -117,9 +124,7 @@
     document.getElementById('k'+n)?.classList.add('on');
     const dot = document.getElementById('d-' + id);
     if(dot) { dot.classList.add('act'); setTimeout(() => dot.classList.remove('act'), 150); }
-
     if(isMe && !isLocalSoundEnabled) return;
-    
     if(voices[n]) stopSound(n);
     const o = audio.createOscillator();
     const g = audio.createGain();
@@ -140,7 +145,6 @@
   function stopSound(n) {
     if(voices[n]) {
       const { o, g } = voices[n];
-      // 찍찍 소리 방지를 위한 페이드 아웃 최적화
       g.gain.setTargetAtTime(0, audio.currentTime, 0.03);
       setTimeout(() => { try { o.stop(); o.disconnect(); } catch(e){} }, 100);
       delete voices[n];
@@ -174,7 +178,12 @@
   setInterval(() => { if(currentRoomName) socket.emit('ping-req', Date.now()); }, 2000);
 
   function upd(us) {
-    const c = document.getElementById('users'); c.innerHTML = '';
+    const c = document.getElementById('users');
+    const currentUsersData = JSON.stringify(us);
+    if (c.getAttribute('data-last') === currentUsersData) return;
+    c.setAttribute('data-last', currentUsersData);
+
+    c.innerHTML = '';
     us.forEach(u => {
       const d = document.createElement('div'); d.className = 'u-card';
       d.innerHTML = `<span class="u-dot" id="d-${u.id}"></span>${u.name}`;
@@ -182,10 +191,9 @@
     });
   }
 
-  // MIDI 입력 감지 보강 (콘솔 로그 제거하여 퍼포먼스 향상)
   if(navigator.requestMIDIAccess) {
     navigator.requestMIDIAccess({ sysex: true }).then(access => {
-      access.onstatechange = (e) => { location.reload(); }; // 장치 변경 시 자동 새로고침
+      // [깜빡임 방지] 무조건 새로고침하던 로직 제거
       for (let input of access.inputs.values()) {
         input.onmidimessage = (e) => tx(e.data[0], e.data[1], e.data[2]);
       }
