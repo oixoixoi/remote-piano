@@ -2,13 +2,14 @@
 <html>
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Remote Piano</title>
   <style>
-    body { background:#111; color:#fff; display:flex; flex-direction:column; height:100vh; margin:0; overflow:hidden; font-family:sans-serif; }
+    body { background:#111; color:#fff; display:flex; flex-direction:column; height:100vh; margin:0; overflow:hidden; font-family:sans-serif; touch-action:none; }
     #login { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); display:flex; justify-content:center; align-items:center; z-index:99; flex-direction:column; }
     .box { background:#222; padding:40px; border-radius:15px; text-align:center; border:1px solid #333; }
     h2 { margin-top:0; color:#0f8; }
-    input { display:block; margin:15px 0; padding:15px; width:250px; background:#333; border:1px solid #555; color:#fff; border-radius:5px; font-size:16px; outline:none; }
+    input { display:block; margin:15px 0; padding:15px; width:250px; background:#333; border:1px solid #555; color:#fff; border-radius:5px; font-size:16px; outline:none; box-sizing:border-box; }
     input:focus { border-color:#0f8; }
     button { padding:15px 30px; background:#0f8; border:none; cursor:pointer; font-weight:bold; font-size:16px; border-radius:5px; margin-top:10px; width:100%; transition:0.2s; }
     button:hover { background:#0c6; }
@@ -25,13 +26,12 @@
     .u-dot { width:8px; height:8px; background:#555; border-radius:50%; transition:0.1s; }
     .u-dot.act { background:#0f8; box-shadow:0 0 8px #0f8; transform:scale(1.2); }
 
-    /* 위에서 아래로 정렬 */
-    #piano { flex:1; display:flex; align-items:flex-start; padding-top:40px; justify-content:center; position:relative; overflow-x:auto; background:linear-gradient(to bottom, #111, #000); }
-    .k { position:relative; border-radius:0 0 5px 5px; cursor:pointer; transition:0.05s; }
+    #piano { flex:1; display:flex; align-items:flex-end; padding-bottom:30px; justify-content:center; position:relative; overflow-x:auto; background:linear-gradient(to bottom, #111, #000); }
+    .k { position:relative; border-radius:0 0 5px 5px; cursor:pointer; transition:background 0.05s; }
     .w { width:32px; height:220px; background:#fff; border:1px solid #ccc; z-index:1; }
-    .w:active, .w.on { background:#ffe600; box-shadow:0 0 15px rgba(255,230,0,0.5); transform:translateY(2px); }
-    .b { width:20px; height:140px; background:#000; margin:0 -10px; z-index:2; border:1px solid #222; }
-    .b:active, .b.on { background:#d4a000; transform:translateY(2px); }
+    .w:active, .w.on { background:#ffe600; box-shadow:0 0 15px rgba(255,230,0,0.5); }
+    .b { width:20px; height:140px; background:#000; margin:0 -10px 80px -10px; z-index:2; border:1px solid #222; }
+    .b:active, .b.on { background:#d4a000; }
   </style>
 </head>
 <body>
@@ -64,7 +64,10 @@
   const socket = io();
   const oscs = {}, gains = {};
   let room;
-  let midiOutputs = []; // DAW로 보낼 미디 아웃풋 저장소
+  let midiOutputs = []; 
+  
+  // 핵심: 루프 방지를 위한 기록장
+  const echoBlock = {}; 
 
   function play(n, v) {
     if(oscs[n]) stop(n);
@@ -90,19 +93,29 @@
     if(k) k.classList.remove('on');
   }
 
+  function tx(s, n, v) {
+    if(audio.state === 'suspended') audio.resume();
+    if(s===144 && v>0) play(n,v); else stop(n);
+    if(room) socket.emit('midi-msg', { roomName:room, msg:[s,n,v] });
+  }
+
   const p = document.getElementById('piano');
   for(let i=21; i<=108; i++) {
     const isB = [1,3,6,8,10].includes(i%12);
     const d = document.createElement('div');
     d.id = 'k'+i; d.className = `k ${isB?'b':'w'}`;
-    d.onmousedown = () => tx(144, i, 100);
-    d.onmouseup = d.onmouseleave = () => tx(128, i, 0);
-    p.appendChild(d);
-  }
+    
+    const press = (e) => { e.preventDefault(); tx(144, i, 100); };
+    const release = (e) => { e.preventDefault(); tx(128, i, 0); };
 
-  function tx(s, n, v) {
-    if(s===144 && v>0) play(n,v); else stop(n);
-    if(room) socket.emit('midi-msg', { roomName:room, msg:[s,n,v] });
+    d.addEventListener('mousedown', press);
+    d.addEventListener('touchstart', press, {passive: false});
+    d.addEventListener('mouseup', release);
+    d.addEventListener('mouseleave', release);
+    d.addEventListener('touchend', release);
+    d.addEventListener('touchcancel', release);
+
+    p.appendChild(d);
   }
 
   function join() {
@@ -130,18 +143,16 @@
   socket.on('user-joined', u => addU(u));
   socket.on('user-left', id => { document.getElementById('u-'+id)?.remove(); });
   
-  // 상대방의 미디 신호가 도착했을 때
+  // 원격 신호가 들어올 때
   socket.on('remote-midi', d => { 
     const [s,n,v] = d.msg; 
     
-    // 1. 브라우저에서 소리 재생 (기존)
+    // 이 신호는 내가 친 게 아니라 '상대방이 친 거'라고 0.3초 동안 장부에 기록해둠 (루프 방지)
+    echoBlock[`${s}-${n}`] = Date.now();
+
     if(s===144 && v>0) play(n,v); else stop(n); 
     flash(d.id); 
-    
-    // 2. DAW로 신호 쏴주기 (추가됨!)
-    midiOutputs.forEach(output => {
-      try { output.send([s, n, v]); } catch(e) {}
-    });
+    midiOutputs.forEach(output => { try { output.send([s, n, v]); } catch(e) {} });
   });
 
   socket.on('user-activity', d => flash(d.id));
@@ -158,12 +169,18 @@
     if(d) { d.classList.add('act'); setTimeout(()=>d.classList.remove('act'), 100); }
   }
   
-  // 미디 기기 연결 (입력 + 출력 모두 잡기)
   if(navigator.requestMIDIAccess) {
     navigator.requestMIDIAccess().then(m => { 
-      // 입력 (내가 건반 칠 때)
-      for(let i of m.inputs.values()) i.onmidimessage = e => tx(e.data[0], e.data[1], e.data[2]); 
-      // 출력 (상대방 신호를 DAW로 쏠 때 쓸 케이블들 저장)
+      for(let i of m.inputs.values()) {
+        i.onmidimessage = e => {
+          const [s, n, v] = e.data;
+          
+          // 방금 상대방이 쳐서 장부에 기록된 신호가 다시 DAW를 맞고 돌아온 거라면(메아리) 무시!
+          if (echoBlock[`${s}-${n}`] && Date.now() - echoBlock[`${s}-${n}`] < 300) return;
+          
+          tx(s, n, v);
+        };
+      }
       for(let o of m.outputs.values()) midiOutputs.push(o);
     });
   }
