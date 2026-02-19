@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Remote Piano v1.1.3</title>
+  <title>Remote Piano v1.1.4</title>
   <style>
     body { background:#0a0a0a; color:#fff; margin:0; font-family:sans-serif; height:100vh; display:flex; flex-direction:column; overflow:hidden; }
     header { padding:0 25px; height:70px; display:flex; justify-content:space-between; align-items:center; background:#1a1a1a; border-bottom:1px solid #333; position:relative; }
@@ -33,7 +33,7 @@
 <body>
 
 <header>
-  <div class="logo">🎹 SESSION <span class="version-tag">v1.1.3</span></div>
+  <div class="logo">🎹 SESSION <span class="version-tag">v1.1.4</span></div>
   <div id="room-display-center" style="display:none;"><div id="room-name-big"></div><div id="ping-small">--ms</div></div>
   <div class="controls">
     <button id="sound-btn" class="sound-toggle on" onclick="toggleSound()">SOUND ON</button>
@@ -81,15 +81,12 @@
     p.appendChild(d);
   }
 
-  // [깜빡임 방지] 데이터가 같으면 방 목록을 새로 그리지 않음
   socket.on('room-list', list => {
     const container = document.getElementById('room-list-container');
     if (currentRoomName) { container.style.display = 'none'; return; }
-    
     const currentData = JSON.stringify(list);
     if (lastRoomListData === currentData) return;
     lastRoomListData = currentData;
-
     container.innerHTML = list.length ? '<span style="font-size:12px; color:#666; align-self:center;">OPEN ROOMS:</span>' : '';
     list.forEach(room => {
       const item = document.createElement('div');
@@ -108,13 +105,15 @@
     socket.emit('join-room', { roomName: r, userName: n, password: p });
   }
 
+  // [v1.1.4 핵심] 신호 처리 필터 강화
   function tx(s, n, v) {
-    if (s === 176 && n === 64) {
+    const type = s & 0xf0; // 채널 정보 제외한 순수 메시지 타입
+    if (type === 0xb0 && n === 64) { // CC 64 (페달)
       isSustainOn = v >= 64;
       if (!isSustainOn) { sustainedNotes.forEach(note => stopSound(note)); sustainedNotes.clear(); }
-    } else if (s === 144 && v > 0) {
+    } else if (type === 0x90 && v > 0) { // Note On
       playKey(n, v, socket.id, true);
-    } else {
+    } else if (type === 0x80 || (type === 0x90 && v === 0)) { // Note Off
       stopKey(n);
     }
     if(currentRoomName) socket.emit('midi-msg', { roomName: currentRoomName, msg: [s, n, v] });
@@ -161,14 +160,17 @@
   });
 
   socket.on('update-users', us => upd(us));
+
+  // [v1.1.4 핵심] 원격 신호 수신부 필터 강화
   socket.on('remote-midi', d => {
     const [s, n, v] = d.msg;
-    if (s === 176 && n === 64) {
+    const type = s & 0xf0;
+    if (type === 0xb0 && n === 64) {
       isSustainOn = v >= 64;
       if (!isSustainOn) { sustainedNotes.forEach(note => stopSound(note)); sustainedNotes.clear(); }
-    } else if (s === 144 && v > 0) {
+    } else if (type === 0x90 && v > 0) {
       playKey(n, v, d.id, false);
-    } else {
+    } else if (type === 0x80 || (type === 0x90 && v === 0)) {
       stopKey(n);
     }
     midiOuts.forEach(out => out.send([s, n, v]));
@@ -182,7 +184,6 @@
     const currentUsersData = JSON.stringify(us);
     if (c.getAttribute('data-last') === currentUsersData) return;
     c.setAttribute('data-last', currentUsersData);
-
     c.innerHTML = '';
     us.forEach(u => {
       const d = document.createElement('div'); d.className = 'u-card';
@@ -193,7 +194,6 @@
 
   if(navigator.requestMIDIAccess) {
     navigator.requestMIDIAccess({ sysex: true }).then(access => {
-      // [깜빡임 방지] 무조건 새로고침하던 로직 제거
       for (let input of access.inputs.values()) {
         input.onmidimessage = (e) => tx(e.data[0], e.data[1], e.data[2]);
       }
