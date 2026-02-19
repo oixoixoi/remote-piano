@@ -1,6 +1,6 @@
 /**
- * Remote Piano Server v1.1.2
- * 변경점: 데이터 전송 안정성 및 퍼포먼스 최적화
+ * Remote Piano Server v1.1.3
+ * 변경점: 클라이언트 깜빡임 방지를 위한 안정화 버전
  */
 const express = require('express');
 const app = express();
@@ -54,4 +54,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => { console.log(`🚀 v1.1.2 서버 가동 중`); });
+server.listen(PORT, () => { console.log(`🚀 v1.1.3 서버 가동 중`); });
