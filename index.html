@@ -13,18 +13,17 @@
     
     .control-group { display:flex; gap:10px; align-items:center; }
     input { padding:12px 15px; background:#222; border:1px solid #444; color:#fff; border-radius:6px; font-size:14px; outline:none; transition:0.2s; width:140px; }
-    input:focus { border-color:#0f8; box-shadow: 0 0 5px rgba(0,255,136,0.3); }
+    input:focus { border-color:#0f8; }
     input[readonly] { color:#0f8; font-weight:bold; cursor:not-allowed; background:#151515; } 
     
     button { padding:12px 22px; border:none; border-radius:6px; font-weight:bold; font-size:14px; cursor:pointer; transition:0.2s; }
     .btn-create { background:#0f8; color:#000; } 
-    .btn-create:hover { background:#0c6; transform:translateY(-1px); }
+    .btn-create:hover { background:#0c6; }
     .btn-join { background:#0ea5e9; color:#fff; } 
-    .btn-join:hover { background:#0284c7; transform:translateY(-1px); }
+    .btn-join:hover { background:#0284c7; }
     .btn-leave { background:#ff4444; color:#fff; }
     .btn-leave:hover { background:#cc0000; }
 
-    /* 방 목록 (방 만들기 하단 배치) */
     .lobby-area { display:flex; gap:15px; align-items:center; }
     .lobby-label { color:#888; font-size:13px; font-weight:bold; white-space:nowrap; }
     #active-rooms { display:flex; gap:10px; flex-wrap:wrap; }
@@ -45,9 +44,10 @@
     
     .k { position:relative; border-radius:0 0 5px 5px; cursor:pointer; transition:background 0.05s; -webkit-user-drag:none; }
     .w { width:38px; height:240px; background:#fff; border:1px solid #ccc; z-index:1; }
-    .w:active, .w.on { background:#ffe600; box-shadow:0 0 15px rgba(255,230,0,0.5); }
+    /* 클래스 .on이 붙었을 때만 노란색 유지 */
+    .w.on { background:#ffe600 !important; box-shadow:0 0 15px rgba(255,230,0,0.5); }
     .b { width:24px; height:150px; background:#000; margin:0 -12px 90px -12px; z-index:2; border:1px solid #222; }
-    .b:active, .b.on { background:#ffe600 !important; box-shadow:0 0 15px rgba(255,230,0,0.5); }
+    .b.on { background:#ffe600 !important; box-shadow:0 0 15px rgba(255,230,0,0.5); }
   </style>
 </head>
 <body>
@@ -55,7 +55,6 @@
 <header>
   <div class="header-top">
     <div class="logo">🎹 Remote Piano</div>
-    
     <div class="control-group" id="login-form">
       <input id="rn" placeholder="방 이름" autocomplete="off">
       <input id="pw" type="text" placeholder="비밀번호(4자리)" maxlength="4" autocomplete="off" oninput="this.value=this.value.replace(/[^0-9]/g,'')">
@@ -63,7 +62,6 @@
       <button id="btn-action" class="btn-create" onclick="createRoom()">방 만들기</button>
       <button id="btn-cancel" class="btn-leave" style="display:none;" onclick="resetLobbyMode()">취소</button>
     </div>
-    
     <div class="control-group" id="connected-ui" style="display:none;">
       <div id="room-name-display" style="font-weight:bold; color:#0f8; font-size:18px; margin-right:10px;"></div>
       <div class="status-wrap">
@@ -75,7 +73,6 @@
       <button class="btn-leave" onclick="location.reload()">접속 끊기</button>
     </div>
   </div>
-
   <div class="lobby-area" id="lobby-wrap">
     <span class="lobby-label">🟢 열려있는 방:</span>
     <div id="active-rooms">
@@ -92,14 +89,15 @@
   const audio = new (window.AudioContext||window.webkitAudioContext)();
   const socket = io();
   const oscs = {}, gains = {};
-  let midiOutputs = []; 
   const echoBlock = {}; 
   const peers = {}; 
   const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }; 
 
-  // 오디오 엔진
+  // 핵심: 불빛 제어를 무조건 play/stop 함수 내부에서만 하도록 단일화
   function play(n, v) {
+    // 1. 이미 나고 있는 소리나 불빛이 있다면 끄고 시작
     if(oscs[n]) stop(n);
+
     const o = audio.createOscillator();
     const g = audio.createGain();
     o.type = 'triangle';
@@ -111,10 +109,20 @@
     o.connect(g); g.connect(audio.destination);
     o.start();
     oscs[n]=o; gains[n]=g;
-    document.getElementById('k'+n)?.classList.add('on');
+
+    // 시각 효과 추가
+    const k = document.getElementById('k'+n);
+    if(k) k.classList.add('on');
   }
 
   function stop(n) {
+    if(!oscs[n]) {
+      // 소리는 없는데 불빛만 남아있는 예외 상황을 위해 강제로 클래스 제거
+      const k = document.getElementById('k'+n);
+      if(k) k.classList.remove('on');
+      return;
+    }
+
     if(gains[n]) {
       gains[n].gain.cancelScheduledValues(audio.currentTime);
       gains[n].gain.setValueAtTime(gains[n].gain.value, audio.currentTime);
@@ -123,7 +131,10 @@
     const o = oscs[n];
     setTimeout(()=>{ if(o) { o.stop(); o.disconnect(); } }, 40);
     delete oscs[n]; delete gains[n];
-    document.getElementById('k'+n)?.classList.remove('on');
+
+    // 시각 효과 제거
+    const k = document.getElementById('k'+n);
+    if(k) k.classList.remove('on');
   }
 
   function tx(s, n, v) {
@@ -139,45 +150,97 @@
     if (!sentP2P && window.currentRoom) socket.emit('midi-msg', { roomName: window.currentRoom, msg: [s, n, v] });
   }
 
-  // 피아노 생성
-  const p = document.getElementById('piano');
+  const pianoEl = document.getElementById('piano');
   for(let i=21; i<=108; i++) {
     const isB = [1,3,6,8,10].includes(i%12);
     const d = document.createElement('div');
     d.id = 'k'+i; d.className = `k ${isB?'b':'w'}`;
     d.draggable = false; 
-    p.appendChild(d);
+    pianoEl.appendChild(d);
   }
 
-  // 마우스/터치 로직
-  let activeMouseKey = null;
-  p.addEventListener('mousedown', (e) => {
+  // 마우스 추적 (전체 화면 기준)
+  let currentActiveNote = null;
+
+  pianoEl.addEventListener('mousedown', (e) => {
     const k = e.target.closest('.k');
-    if(k) { e.preventDefault(); const note = parseInt(k.id.replace('k','')); activeMouseKey = note; tx(144, note, 100); }
+    if(k) {
+      e.preventDefault();
+      const note = parseInt(k.id.replace('k',''));
+      currentActiveNote = note;
+      tx(144, note, 100);
+    }
   });
-  p.addEventListener('mouseover', (e) => {
+
+  pianoEl.addEventListener('mouseover', (e) => {
+    if(e.buttons !== 1) return; 
     const k = e.target.closest('.k');
-    if(k && e.buttons === 1) { const note = parseInt(k.id.replace('k','')); if(activeMouseKey && activeMouseKey !== note) tx(128, activeMouseKey, 0); activeMouseKey = note; tx(144, note, 100); }
+    if(k) {
+      const note = parseInt(k.id.replace('k',''));
+      if(currentActiveNote !== note) {
+        if(currentActiveNote) tx(128, currentActiveNote, 0); 
+        currentActiveNote = note;
+        tx(144, note, 100);
+      }
+    }
   });
-  document.addEventListener('mouseup', () => { if(activeMouseKey) { tx(128, activeMouseKey, 0); activeMouseKey = null; } });
+
+  // 화면 어디서든 떼면 소리와 불빛 모두 종료
+  window.addEventListener('mouseup', () => {
+    if(currentActiveNote) {
+      tx(128, currentActiveNote, 0);
+      currentActiveNote = null;
+    }
+  });
+
+  // 피아노 영역 이탈 시 즉각 종료
+  pianoEl.addEventListener('mouseleave', () => {
+    if(currentActiveNote) {
+      tx(128, currentActiveNote, 0);
+      currentActiveNote = null;
+    }
+  });
 
   const activeTouches = {};
-  p.addEventListener('touchstart', (e) => {
+  pianoEl.addEventListener('touchstart', (e) => {
     e.preventDefault();
-    for (let touch of e.changedTouches) { const elem = document.elementFromPoint(touch.clientX, touch.clientY); if (elem && elem.classList.contains('k')) { const note = parseInt(elem.id.replace('k','')); activeTouches[touch.identifier] = note; tx(144, note, 100); } }
+    for (let touch of e.changedTouches) {
+      const elem = document.elementFromPoint(touch.clientX, touch.clientY);
+      if (elem && elem.classList.contains('k')) {
+        const note = parseInt(elem.id.replace('k',''));
+        activeTouches[touch.identifier] = note;
+        tx(144, note, 100);
+      }
+    }
   }, {passive: false});
-  p.addEventListener('touchmove', (e) => {
+
+  pianoEl.addEventListener('touchmove', (e) => {
     e.preventDefault();
     for (let touch of e.changedTouches) {
       const elem = document.elementFromPoint(touch.clientX, touch.clientY);
       const prevNote = activeTouches[touch.identifier];
-      if (elem && elem.classList.contains('k')) { const currentNote = parseInt(elem.id.replace('k','')); if (prevNote !== currentNote) { if (prevNote) tx(128, prevNote, 0); activeTouches[touch.identifier] = currentNote; tx(144, currentNote, 100); } } 
+      if (elem && elem.classList.contains('k')) {
+        const currentNote = parseInt(elem.id.replace('k',''));
+        if (prevNote !== currentNote) {
+          if (prevNote) tx(128, prevNote, 0);
+          activeTouches[touch.identifier] = currentNote;
+          tx(144, currentNote, 100);
+        }
+      } else {
+        if(prevNote) { tx(128, prevNote, 0); delete activeTouches[touch.identifier]; }
+      }
     }
   }, {passive: false});
-  const handleTouchEnd = (e) => { e.preventDefault(); for (let touch of e.changedTouches) { const prevNote = activeTouches[touch.identifier]; if (prevNote) { tx(128, prevNote, 0); delete activeTouches[touch.identifier]; } } };
-  p.addEventListener('touchend', handleTouchEnd, {passive: false});
 
-  // 로비 로직
+  const handleTouchEnd = (e) => {
+    e.preventDefault();
+    for (let touch of e.changedTouches) {
+      const prevNote = activeTouches[touch.identifier];
+      if (prevNote) { tx(128, prevNote, 0); delete activeTouches[touch.identifier]; }
+    }
+  };
+  pianoEl.addEventListener('touchend', handleTouchEnd, {passive: false});
+
   socket.on('room-list', rooms => {
     const container = document.getElementById('active-rooms');
     if(rooms.length === 0) { container.innerHTML = '<span style="color:#444; font-size:13px;">진행 중인 방이 없습니다.</span>'; return; }
@@ -212,10 +275,15 @@
   });
   socket.on('error-msg', m => { alert(m); window.currentRoom = null; });
   socket.on('user-left', id => { document.getElementById('u-'+id)?.remove(); if(peers[id]) { peers[id].pc.close(); delete peers[id]; } });
-  socket.on('remote-midi', d => { const [s,n,v] = d.msg; echoBlock[`${s}-${n}`] = Date.now(); if(s===144 && v>0) play(n,v); else stop(n); flash(d.id); midiOutputs.forEach(output => { try { output.send([s, n, v]); } catch(e) {} }); });
+  socket.on('remote-midi', d => { 
+    const [s,n,v] = d.msg; 
+    echoBlock[`${s}-${n}`] = Date.now(); 
+    if(s===144 && v>0) play(n,v); else stop(n); 
+    flash(d.id); 
+    midiOutputs.forEach(output => { try { output.send([s, n, v]); } catch(e) {} }); 
+  });
   socket.on('user-activity', d => flash(d.id));
 
-  // 네트워크 상태
   function updatePing(ms) {
     const pingEl = document.getElementById('net-ping');
     const modeEl = document.getElementById('net-mode');
