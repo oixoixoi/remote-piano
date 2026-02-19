@@ -1,30 +1,35 @@
-// (앞부분 생략 - 기존 스타일 및 HTML 구조 동일)
+// 1. 오디오 엔진 상태를 관리하는 핵심 로직
+  const audio = new (window.AudioContext || window.webkitAudioContext)();
 
-  // 1. 방 만들기/참가 시 오디오 엔진 깨우기 (이게 핵심입니다!)
-  function createRoom() { 
-    const d = validate(); 
-    if(!d) return; 
+  // 사용자의 모든 동작(클릭, 터치, 키보드)을 감지하여 엔진을 깨움
+  const unlockEvents = ['mousedown', 'touchstart', 'keydown', 'mousemove'];
+  
+  function autoUnlock() {
+    if (audio.state === 'suspended') {
+      audio.resume().then(() => {
+        console.log("Audio Automatically Unlocked!");
+        // 엔진이 깨어나면 더 이상 감시하지 않음 (자원 절약)
+        unlockEvents.forEach(ev => window.removeEventListener(ev, autoUnlock));
+      });
+    }
+  }
+
+  // 페이지에 접속하자마자 이 이벤트들을 걸어둠
+  unlockEvents.forEach(ev => window.addEventListener(ev, autoUnlock, { once: true }));
+
+  // 2. Play 함수 내부에서도 한 번 더 강제로 깨우기
+  function play(n, v) {
+    if (isMuted) return;
     
-    // 사용자가 버튼을 눌렀으므로 여기서 오디오 허용!
-    if(audio.state === 'suspended') audio.resume().then(() => {
-      console.log("Audio Context resumed successfully.");
-    });
+    // 연주가 시작되는 즉시 엔진 상태 확인 (보험)
+    if (audio.state === 'suspended') {
+      audio.resume();
+    }
 
-    socket.emit('create-room', { roomName: d.r, userName: d.n, password: d.pw }); 
-    window.currentRoom = d.r; 
-  }
+    if (activeVoices[n]) stop(n, true);
 
-  function joinRoom() { 
-    const d = validate(); 
-    if(!d) return; 
+    const now = audio.currentTime;
+    const freq = 440 * Math.pow(2, (n - 69) / 12);
+    const vol = (v / 127) * 0.4;
 
-    // 여기서도 오디오 허용!
-    if(audio.state === 'suspended') audio.resume().then(() => {
-      console.log("Audio Context resumed successfully.");
-    });
-
-    socket.emit('join-room', { roomName: d.r, userName: d.n, password: d.pw }); 
-    window.currentRoom = d.r; 
-  }
-
-  // (뒷부분 생략 - 나머지 로직 동일)
+    // ... (EP 사운드 엔진 로직 동일)
