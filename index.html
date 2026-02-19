@@ -2,28 +2,32 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Remote Piano v1.1.4</title>
+  <title>Remote Piano v1.0.9</title>
   <style>
     body { background:#0a0a0a; color:#fff; margin:0; font-family:sans-serif; height:100vh; display:flex; flex-direction:column; overflow:hidden; }
     header { padding:0 25px; height:70px; display:flex; justify-content:space-between; align-items:center; background:#1a1a1a; border-bottom:1px solid #333; position:relative; }
-    .logo { font-size:20px; font-weight:900; color:#0f8; display:flex; align-items:center; gap:8px; }
+    .logo-area { display:flex; align-items:center; gap:10px; min-width:180px; z-index:10; }
+    .logo { font-size:20px; font-weight:900; color:#0f8; }
     .version-tag { font-size:10px; background:#333; color:#aaa; padding:2px 6px; border-radius:10px; }
-    #room-display-center { position:absolute; left:50%; transform:translateX(-50%); text-align:center; pointer-events:none; }
+    #room-display-center { position:absolute; left:50%; transform:translateX(-50%); text-align:center; width:300px; pointer-events:none; }
     #room-name-big { font-size:24px; font-weight:bold; color:#0f8; text-transform:uppercase; letter-spacing:1px; }
-    #ping-small { font-size:11px; color:#666; font-family:monospace; }
-    .controls { display:flex; align-items:center; gap:12px; }
+    #ping-small { font-size:11px; color:#666; font-family:monospace; margin-top:2px; }
+    .controls { display:flex; align-items:center; gap:12px; min-width:180px; justify-content:flex-end; z-index:10; }
     .sound-toggle { padding:8px 14px; border-radius:4px; border:1px solid #444; background:#222; color:#eee; cursor:pointer; font-size:12px; font-weight:bold; }
-    .sound-toggle.off { background:#442222; color:#ff8888; }
-    .sound-toggle.on { background:#224422; color:#88ff88; }
+    .sound-toggle.off { background:#442222; color:#ff8888; border-color:#663333; }
+    .sound-toggle.on { background:#224422; color:#88ff88; border-color:#336633; }
     .auth { display:flex; gap:8px; }
     input { padding:8px; background:#222; border:1px solid #444; color:#fff; border-radius:4px; width:90px; outline:none; }
     .btn-join { padding:8px 15px; border:none; border-radius:4px; font-weight:bold; cursor:pointer; background:#0f8; color:#000; }
+    .btn-exit { padding:8px 14px; border:none; border-radius:4px; font-weight:bold; cursor:pointer; background:#ff4444; color:#fff; font-size:12px; }
+    #room-list-container { padding:10px 25px; background:#111; display:flex; gap:10px; overflow-x:auto; border-bottom:1px solid #222; min-height:20px; }
+    .room-item { background:#222; padding:5px 12px; border-radius:15px; font-size:12px; cursor:pointer; border:1px solid #333; white-space:nowrap; }
     #users { padding:15px; display:flex; gap:10px; justify-content:center; min-height:45px; flex-wrap:wrap; }
     .u-card { background:#222; padding:6px 14px; border-radius:20px; border:1px solid #333; display:flex; align-items:center; gap:8px; font-size:13px; }
-    .u-dot { width:10px; height:10px; background:#444; border-radius:50%; transition: 0.1s; }
+    .u-dot { width:10px; height:10px; background:#444; border-radius:50%; transition: background 0.05s, box-shadow 0.05s; }
     .u-dot.act { background:#0f8 !important; box-shadow:0 0 10px #0f8; }
     #piano-wrap { flex:1; display:flex; justify-content:center; align-items:flex-start; padding-top:40px; background:#050505; overflow-x:auto; user-select:none; }
-    .k { position:relative; cursor:pointer; border-radius:0 0 5px 5px; }
+    .k { position:relative; cursor:pointer; border-radius:0 0 5px 5px; transition: transform 0.05s; }
     .w { width:38px; height:220px; background:linear-gradient(to bottom, #eee, #fff 95%, #bbb); border:1px solid #888; z-index:1; margin-right:-1px; }
     .w.on { background:linear-gradient(to bottom, #ffcc00, #ffaa00) !important; transform:translateY(2px); }
     .b { width:24px; height:130px; background:linear-gradient(to bottom, #444, #000); margin:0 -12px 90px -12px; z-index:2; border:1px solid #000; }
@@ -33,8 +37,14 @@
 <body>
 
 <header>
-  <div class="logo">🎹 SESSION <span class="version-tag">v1.1.4</span></div>
-  <div id="room-display-center" style="display:none;"><div id="room-name-big"></div><div id="ping-small">--ms</div></div>
+  <div class="logo-area">
+    <div class="logo">🎹 SESSION</div>
+    <span class="version-tag">v1.0.9</span>
+  </div>
+  <div id="room-display-center" style="display:none;">
+    <div id="room-name-big"></div>
+    <div id="ping-small">--ms</div>
+  </div>
   <div class="controls">
     <button id="sound-btn" class="sound-toggle on" onclick="toggleSound()">SOUND ON</button>
     <div class="auth" id="login-form">
@@ -43,11 +53,11 @@
       <input id="nm" placeholder="NAME">
       <button class="btn-join" onclick="join()">JOIN</button>
     </div>
-    <button id="exit-btn" style="display:none; background:#ff4444; color:#fff; border:none; padding:8px 14px; border-radius:4px; font-weight:bold; cursor:pointer;" onclick="location.reload()">EXIT</button>
+    <button id="exit-btn" class="btn-exit" style="display:none;" onclick="location.reload()">EXIT</button>
   </div>
 </header>
 
-<div id="room-list-container" style="padding:10px 25px; background:#111; display:flex; gap:10px; overflow-x:auto; border-bottom:1px solid #222; min-height:20px;"></div>
+<div id="room-list-container"></div>
 <div id="users"></div>
 <div id="piano-wrap"><div id="piano" style="display:flex;"></div></div>
 
@@ -58,39 +68,42 @@
   const voices = {};
   let midiOuts = [];
   let currentRoomName = "";
+  let isMouseDown = false;
   let isLocalSoundEnabled = true;
+
+  // 페달 및 서스테인 관리 (전역)
   let isSustainOn = false;
   let sustainedNotes = new Set();
-  let lastRoomListData = "";
 
   function toggleSound() {
     isLocalSoundEnabled = !isLocalSoundEnabled;
     const btn = document.getElementById('sound-btn');
     btn.innerText = isLocalSoundEnabled ? "SOUND ON" : "SOUND OFF";
     btn.className = isLocalSoundEnabled ? "sound-toggle on" : "sound-toggle off";
-    if(isLocalSoundEnabled) audio.resume();
+    if(isLocalSoundEnabled && audio.state === 'suspended') audio.resume();
   }
 
+  // 건반 생성
   const p = document.getElementById('piano');
   for(let i=21; i<=108; i++) {
     const isB = [1,3,6,8,10].includes(i%12);
     const d = document.createElement('div');
     d.id = 'k'+i; d.className = `k ${isB?'b':'w'}`;
-    d.onmousedown = () => tx(144, i, 100);
-    d.onmouseup = () => tx(128, i, 0);
+    d.onmousedown = (e) => { isMouseDown = true; tx(144, i, 100); };
+    d.onmouseenter = (e) => { if(isMouseDown) tx(144, i, 100); };
+    d.onmouseleave = (e) => { if(isMouseDown) tx(128, i, 0); };
+    d.onmouseup = (e) => { isMouseDown = false; tx(128, i, 0); };
     p.appendChild(d);
   }
+  window.onmouseup = () => { isMouseDown = false; };
 
   socket.on('room-list', list => {
     const container = document.getElementById('room-list-container');
     if (currentRoomName) { container.style.display = 'none'; return; }
-    const currentData = JSON.stringify(list);
-    if (lastRoomListData === currentData) return;
-    lastRoomListData = currentData;
-    container.innerHTML = list.length ? '<span style="font-size:12px; color:#666; align-self:center;">OPEN ROOMS:</span>' : '';
+    container.innerHTML = list.length ? '<span style="font-size:12px; color:#666; align-self:center; margin-right:5px;">OPEN ROOMS:</span>' : '';
     list.forEach(room => {
       const item = document.createElement('div');
-      item.style.cssText = "background:#222; padding:5px 12px; border-radius:15px; font-size:12px; cursor:pointer; border:1px solid #333;";
+      item.className = 'room-item';
       item.innerText = `${room.name} (${room.userCount})`;
       item.onclick = () => { document.getElementById('rn').value = room.name; document.getElementById('pw').focus(); };
       container.appendChild(item);
@@ -98,54 +111,80 @@
   });
 
   function join() {
-    audio.resume();
+    if(audio.state === 'suspended') audio.resume();
     const r = document.getElementById('rn').value, p = document.getElementById('pw').value, n = document.getElementById('nm').value;
     if(!r || p.length !== 6 || !n) return alert("CHECK ROOM, PASS(6), NAME!");
     currentRoomName = r;
     socket.emit('join-room', { roomName: r, userName: n, password: p });
   }
 
-  // [v1.1.4 핵심] 신호 처리 필터 강화
+  // MIDI 송신 및 로컬 처리
   function tx(s, n, v) {
-    const type = s & 0xf0; // 채널 정보 제외한 순수 메시지 타입
-    if (type === 0xb0 && n === 64) { // CC 64 (페달)
-      isSustainOn = v >= 64;
-      if (!isSustainOn) { sustainedNotes.forEach(note => stopSound(note)); sustainedNotes.clear(); }
-    } else if (type === 0x90 && v > 0) { // Note On
+    if (s === 176 && n === 64) {
+      processSustain(v);
+    } else if (s === 144 && v > 0) {
       playKey(n, v, socket.id, true);
-    } else if (type === 0x80 || (type === 0x90 && v === 0)) { // Note Off
+    } else if (s === 128 || (s === 144 && v === 0)) {
       stopKey(n);
     }
     if(currentRoomName) socket.emit('midi-msg', { roomName: currentRoomName, msg: [s, n, v] });
   }
 
+  // 페달 처리 로직
+  function processSustain(v) {
+    isSustainOn = v >= 64;
+    if (!isSustainOn) {
+      sustainedNotes.forEach(note => stopSound(note));
+      sustainedNotes.clear();
+    }
+  }
+
+  // 건반 누름 (시각 + 소리 + 이름 옆 점)
   function playKey(n, v, id, isMe) {
+    if(audio.state === 'suspended') audio.resume();
+    
+    // 1. 건반 불 켜기
     document.getElementById('k'+n)?.classList.add('on');
+    
+    // 2. 유저 이름 옆 녹색 점 활성화 (즉각적 피드백)
     const dot = document.getElementById('d-' + id);
-    if(dot) { dot.classList.add('act'); setTimeout(() => dot.classList.remove('act'), 150); }
+    if(dot) {
+      dot.classList.add('act');
+      // 0.1초 뒤에 끄는 방식이 아니라 소리가 날 때만 켜지게 하려면 Note Off에서 처리해야 하지만, 
+      // 타격감을 위해 짧은 타임아웃을 사용합니다.
+      setTimeout(() => dot.classList.remove('act'), 150);
+    }
+
+    // 3. 소리 재생 (내 소리 OFF면 패스)
     if(isMe && !isLocalSoundEnabled) return;
+    
     if(voices[n]) stopSound(n);
     const o = audio.createOscillator();
     const g = audio.createGain();
     o.type = 'triangle';
     o.frequency.value = 440 * Math.pow(2, (n-69)/12);
-    g.gain.setValueAtTime((v/127)*0.2, audio.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + 2.5);
+    g.gain.setValueAtTime((v/127)*0.3, audio.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.01, audio.currentTime + 3);
     o.connect(g); g.connect(audio.destination);
     o.start();
     voices[n] = { o, g };
   }
 
+  // 건반 뗌 (시각적 불은 즉시 끄고 소리는 페달에 따라 결정)
   function stopKey(n) {
     document.getElementById('k'+n)?.classList.remove('on');
-    if (isSustainOn) sustainedNotes.add(n); else stopSound(n);
+    if (isSustainOn) {
+      sustainedNotes.add(n);
+    } else {
+      stopSound(n);
+    }
   }
 
   function stopSound(n) {
     if(voices[n]) {
-      const { o, g } = voices[n];
-      g.gain.setTargetAtTime(0, audio.currentTime, 0.03);
-      setTimeout(() => { try { o.stop(); o.disconnect(); } catch(e){} }, 100);
+      voices[n].g.gain.linearRampToValueAtTime(0, audio.currentTime + 0.1);
+      const target = voices[n].o;
+      setTimeout(() => { try { target.stop(); target.disconnect(); } catch(e){} }, 150);
       delete voices[n];
     }
   }
@@ -160,17 +199,16 @@
   });
 
   socket.on('update-users', us => upd(us));
+  socket.on('error-msg', m => alert(m));
 
-  // [v1.1.4 핵심] 원격 신호 수신부 필터 강화
+  // 원격 MIDI 수신
   socket.on('remote-midi', d => {
     const [s, n, v] = d.msg;
-    const type = s & 0xf0;
-    if (type === 0xb0 && n === 64) {
-      isSustainOn = v >= 64;
-      if (!isSustainOn) { sustainedNotes.forEach(note => stopSound(note)); sustainedNotes.clear(); }
-    } else if (type === 0x90 && v > 0) {
+    if (s === 176 && n === 64) {
+      processSustain(v);
+    } else if (s === 144 && v > 0) {
       playKey(n, v, d.id, false);
-    } else if (type === 0x80 || (type === 0x90 && v === 0)) {
+    } else {
       stopKey(n);
     }
     midiOuts.forEach(out => out.send([s, n, v]));
@@ -180,26 +218,19 @@
   setInterval(() => { if(currentRoomName) socket.emit('ping-req', Date.now()); }, 2000);
 
   function upd(us) {
-    const c = document.getElementById('users');
-    const currentUsersData = JSON.stringify(us);
-    if (c.getAttribute('data-last') === currentUsersData) return;
-    c.setAttribute('data-last', currentUsersData);
-    c.innerHTML = '';
+    const c = document.getElementById('users'); c.innerHTML = '';
     us.forEach(u => {
       const d = document.createElement('div'); d.className = 'u-card';
+      // 소켓 ID를 ID로 사용하여 정확히 타겟팅
       d.innerHTML = `<span class="u-dot" id="d-${u.id}"></span>${u.name}`;
       c.appendChild(d);
     });
   }
 
   if(navigator.requestMIDIAccess) {
-    navigator.requestMIDIAccess({ sysex: true }).then(access => {
-      for (let input of access.inputs.values()) {
-        input.onmidimessage = (e) => tx(e.data[0], e.data[1], e.data[2]);
-      }
-      for (let output of access.outputs.values()) {
-        if(output.name.includes("IAC") || output.name.includes("Bus")) midiOuts.push(output);
-      }
+    navigator.requestMIDIAccess().then(m => {
+      for(let i of m.inputs.values()) i.onmidimessage = e => tx(e.data[0], e.data[1], e.data[2]);
+      for(let o of m.outputs.values()) if(o.name.includes("IAC") || o.name.includes("Bus")) midiOuts.push(o);
     });
   }
 </script>
