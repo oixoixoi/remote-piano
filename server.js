@@ -79,4 +79,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => { console.log(`🚀 방 분리형 하이브리드 서버 온! 포트: ${PORT}`); });
+server.listen(PORT, () => { console.log(`🚀 v1.3.4 하이브리드 서버 가동 중`); });
