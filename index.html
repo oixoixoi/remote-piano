@@ -3,32 +3,55 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Remote Piano - Bi-Directional MIDI</title>
+  <title>Remote Piano</title>
   <style>
-    body { background:#0a0a0a; color:#fff; display:flex; flex-direction:column; height:100vh; margin:0; overflow:hidden; font-family:'Inter', sans-serif; touch-action:none; user-select:none; }
-    header { padding:15px 25px; display:flex; flex-direction:column; gap:12px; background:rgba(26,26,26,0.9); backdrop-filter:blur(12px); border-bottom:1px solid #333; z-index:10; }
-    .header-top { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:15px; }
+    body { background:#0a0a0a; color:#fff; display:flex; flex-direction:column; height:100vh; margin:0; overflow:hidden; font-family:'Inter', -apple-system, BlinkMacSystemFont, sans-serif; touch-action:none; user-select:none; -webkit-user-select:none; }
+    
+    header { padding:12px 20px; display:flex; flex-direction:column; gap:12px; background:rgba(26,26,26,0.8); backdrop-filter:blur(10px); border-bottom:1px solid #333; z-index:10; }
+    .header-top { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; }
     .logo { font-size:20px; font-weight:800; color:#0f8; letter-spacing:1px; text-transform:uppercase; display:flex; align-items:center; gap:8px; }
-    .auth-container { display:flex; flex-direction:column; gap:12px; align-items:flex-end; }
-    .control-group { display:flex; gap:8px; align-items:center; }
-    input { padding:10px 14px; background:#1a1a1a; border:1px solid #333; color:#fff; border-radius:10px; font-size:13px; outline:none; width:120px; }
-    button { padding:10px 18px; border:none; border-radius:10px; font-weight:700; font-size:12px; cursor:pointer; text-transform:uppercase; transition:0.2s; }
+    
+    .control-group { display:flex; gap:6px; align-items:center; }
+    input { padding:10px 14px; background:#1a1a1a; border:1px solid #333; color:#fff; border-radius:10px; font-size:13px; outline:none; transition:0.3s; width:120px; font-weight:500; }
+    input:focus { border-color:#0f8; background:#222; box-shadow:0 0 0 2px rgba(0,255,136,0.1); }
+    input[readonly] { color:#0f8; font-weight:700; cursor:not-allowed; border-style:dashed; opacity:0.8; } 
+    
+    button { padding:10px 18px; border:none; border-radius:10px; font-weight:700; font-size:12px; cursor:pointer; transition:all 0.2s cubic-bezier(0.4, 0, 0.2, 1); display:flex; align-items:center; gap:6px; text-transform:uppercase; letter-spacing:0.5px; }
     .btn-create { background:#0f8; color:#000; } 
+    .btn-create:hover { background:#0fa; transform:translateY(-1px); }
+    .btn-join { background:#2563eb; color:#fff; } 
+    .btn-join:hover { background:#3b82f6; transform:translateY(-1px); }
     .btn-leave { background:#222; color:#ff4444; border:1px solid #333; }
-    .btn-mute { background:#222; color:#888; border:1px solid #333; min-width:130px; justify-content:center; }
-    .btn-mute.active { color:#0f8; border-color:rgba(0,255,136,0.4); }
-    #active-rooms { display:flex; gap:6px; flex-wrap:wrap; justify-content: flex-end; }
-    .room-tag { padding:4px 10px; background:#161616; border:1px solid #262626; border-radius:6px; cursor:pointer; font-size:11px; color:#888; }
-    #users { padding:15px; display:flex; gap:10px; flex-wrap:wrap; justify-content:center; min-height:45px; }
-    .u-card { background:#161616; padding:8px 16px; border-radius:20px; display:flex; align-items:center; gap:8px; border:1px solid #262626; font-size:13px; font-weight:700; color:#eee; }
-    .u-dot { width:7px; height:7px; background:#444; border-radius:50%; transition:0.1s; }
+    .btn-leave:hover { background:#ff4444; color:#fff; }
+
+    /* 🔈 Audio Toggle Button */
+    .btn-mute { background:#222; color:#888; border:1px solid #333; min-width:115px; justify-content:center; }
+    .btn-mute svg { width:14px; height:14px; fill:currentColor; }
+    .btn-mute.active { background:rgba(0, 255, 136, 0.08); color:#0f8; border-color:rgba(0,255,136,0.3); }
+    .btn-mute.muted { background:rgba(255, 68, 68, 0.08); color:#ff4444; border-color:rgba(255,68,68,0.3); }
+
+    .lobby-area { display:flex; gap:10px; align-items:center; padding:2px 0; }
+    .lobby-label { color:#555; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:1px; }
+    #active-rooms { display:flex; gap:6px; flex-wrap:wrap; }
+    .room-tag { padding:4px 12px; background:#1a1a1a; border:1px solid #333; border-radius:20px; cursor:pointer; font-size:11px; color:#999; transition:0.2s; font-weight:600; }
+    .room-tag:hover { background:#0f8; border-color:#0f8; color:#000; }
+
+    .status-wrap { display:flex; align-items:center; gap:10px; background:rgba(0,0,0,0.3); padding:6px 14px; border-radius:10px; border:1px solid #222; }
+    .net-info { text-align:right; display:flex; flex-direction:column; gap:1px; }
+    #net-mode { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; color:#666; }
+    #net-ping { font-size:12px; font-weight:900; font-family: 'JetBrains Mono', monospace; }
+    
+    #users { padding:10px; display:flex; gap:10px; flex-wrap:wrap; justify-content:center; min-height:40px; }
+    .u-card { background:#161616; padding:6px 14px; border-radius:20px; display:flex; align-items:center; gap:8px; border:1px solid #262626; font-size:13px; font-weight:700; color:#eee; }
+    .u-dot { width:7px; height:7px; background:#333; border-radius:50%; transition:all 0.1s; }
     .u-dot.act { background:#0f8; box-shadow:0 0 10px #0f8; transform:scale(1.4); }
-    #piano { flex:1; display:flex; align-items:flex-start; padding-top:20px; justify-content:center; position:relative; overflow-x:auto; }
-    .k { position:relative; border-radius:0 0 6px 6px; cursor:pointer; }
-    .w { width:38px; height:220px; background:#fff; border:1px solid #ddd; z-index:1; margin-right:-1px; }
-    .w.on { background:#ffcc00 !important; }
+    
+    #piano { flex:1; display:flex; align-items:flex-start; padding-top:20px; justify-content:center; position:relative; overflow-x:auto; background:#0a0a0a; }
+    .k { position:relative; border-radius:0 0 6px 6px; cursor:pointer; transition:background 0.05s; }
+    .w { width:38px; height:220px; background:#fff; border:1px solid #ddd; z-index:1; }
+    .w.on { background:#ffe600 !important; box-shadow:0 0 20px rgba(255,230,0,0.6); }
     .b { width:24px; height:135px; background:#1a1a1a; margin:0 -12px 85px -12px; z-index:2; border:1px solid #000; }
-    .b.on { background:#ffcc00 !important; }
+    .b.on { background:#ffe600 !important; box-shadow:0 0 20px rgba(255,230,0,0.6); }
   </style>
 </head>
 <body>
@@ -36,20 +59,37 @@
 <header>
   <div class="header-top">
     <div class="logo"><span>🎹</span> SESSION PIANO</div>
-    <div class="auth-container" id="login-form">
-      <div class="control-group">
-        <input id="rn" placeholder="Room Name">
-        <input id="pw" type="password" placeholder="Pass" maxlength="4">
-        <input id="nm" placeholder="Name">
-        <button class="btn-create" id="btn-action" onclick="createRoom()">CREATE</button>
-      </div>
-      <div id="active-rooms"></div>
+    
+    <div class="control-group" id="login-form">
+      <input id="rn" placeholder="ROOM ID" autocomplete="off">
+      <input id="pw" type="text" placeholder="PIN" maxlength="4" oninput="this.value=this.value.replace(/[^0-9]/g,'')">
+      <input id="nm" placeholder="NICKNAME" autocomplete="off">
+      <button class="btn-create" id="btn-action" onclick="createRoom()">CREATE</button>
+      <button id="btn-cancel" class="btn-leave" style="display:none;" onclick="resetLobbyMode()">CANCEL</button>
     </div>
+    
     <div class="control-group" id="connected-ui" style="display:none;">
-      <div id="room-name-display" style="font-weight:900; color:#0f8; margin-right:10px;"></div>
-      <button id="mute-btn" class="btn-mute active" onclick="toggleMute()"><span id="mute-text">SOUND ON</span></button>
+      <div id="room-name-display" style="font-weight:900; color:#0f8; font-size:14px; margin-right:5px;"></div>
+      <div class="status-wrap">
+        <div class="net-info">
+          <div id="net-mode">LINKING</div>
+          <div id="net-ping">-- MS</div>
+        </div>
+      </div>
+      
+      <button id="mute-btn" class="btn-mute active" onclick="toggleMute()">
+        <svg id="icon-on" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
+        <svg id="icon-off" viewBox="0 0 24 24" style="display:none;"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3z"/></svg>
+        <span id="mute-text">LIVE</span>
+      </button>
+
       <button class="btn-leave" onclick="location.reload()">EXIT</button>
     </div>
+  </div>
+
+  <div class="lobby-area" id="lobby-wrap">
+    <span class="lobby-label">Active:</span>
+    <div id="active-rooms"><span style="color:#333; font-size:10px;">Searching for rooms...</span></div>
   </div>
 </header>
 
@@ -61,148 +101,169 @@
   const audio = new (window.AudioContext||window.webkitAudioContext)();
   const socket = io();
   const activeVoices = {}; 
+  const peers = {}; 
+  const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }; 
+
   let isMuted = false;
-  let midiOutputs = []; // 미디 출력 장치 목록
+  let isSustainOn = false;
+  let sustainedNotes = new Set();
 
-  // 1. 미디 엔진 (입출력 모두 감지)
-  function initMIDI() {
-    if(navigator.requestMIDIAccess) {
-      navigator.requestMIDIAccess({ sysex: true }).then(m => {
-        // 입력 설정
-        for(let input of m.inputs.values()) {
-          input.onmidimessage = e => tx(e.data[0], e.data[1], e.data[2]);
-        }
-        // 출력 설정 (상대방 신호를 내보낼 곳)
-        midiOutputs = Array.from(m.outputs.values());
-        console.log("MIDI Outputs Ready:", midiOutputs.map(o => o.name));
-
-        m.onstatechange = (e) => {
-          if(e.port.state === 'connected' && e.port.type === 'output') {
-            midiOutputs = Array.from(m.outputs.values());
-          }
-        };
+  // 1. Auto-Unlock Logic (소리 바로 나게 하기)
+  const unlockEvents = ['mousedown', 'touchstart', 'keydown', 'mousemove'];
+  function autoUnlock() {
+    if (audio.state === 'suspended') {
+      audio.resume().then(() => {
+        unlockEvents.forEach(ev => window.removeEventListener(ev, autoUnlock));
       });
     }
   }
+  unlockEvents.forEach(ev => window.addEventListener(ev, autoUnlock, { once: true }));
 
-  // 2. 상대방 신호를 내 로직(IAC Driver)으로 쏴주는 함수
-  function sendToMidiOut(msg) {
-    midiOutputs.forEach(output => {
-      // IAC 드라이버나 가상 미디 포트에만 신호를 보냄 (무한 루프 방지)
-      if(output.name.includes("IAC") || output.name.includes("Bus")) {
-        output.send(msg);
-      }
-    });
+  function toggleMute() {
+    isMuted = !isMuted;
+    const btn = document.getElementById('mute-btn');
+    const text = document.getElementById('mute-text');
+    const on = document.getElementById('icon-on');
+    const off = document.getElementById('icon-off');
+
+    if (isMuted) {
+      btn.classList.replace('active', 'muted');
+      text.innerText = "MUTED";
+      on.style.display = 'none'; off.style.display = 'block';
+      Object.keys(activeVoices).forEach(n => stop(n, true));
+    } else {
+      btn.classList.replace('muted', 'active');
+      text.innerText = "LIVE";
+      on.style.display = 'block'; off.style.display = 'none';
+      audio.resume();
+    }
   }
 
-  function play(n, v, remoteId = null) {
-    document.getElementById('k'+n)?.classList.add('on');
-    const dot = document.getElementById('d-' + (remoteId || socket.id));
-    if (dot) dot.classList.add('act');
+  function flashMyDot(active) {
+    const d = document.getElementById('d-' + socket.id);
+    if (d) active ? d.classList.add('act') : d.classList.remove('act');
+  }
 
-    // 상대방이 연주한 경우 내 미디 출력 장치로 신호 전송 (로직 악기 울림)
-    if(remoteId) {
-      sendToMidiOut([0x90, n, v]);
-    }
-
-    if(isMuted && !remoteId) { activeVoices[n] = { isDummy: true }; return; }
+  function play(n, v) {
+    if(isMuted) return;
     if(audio.state === 'suspended') audio.resume();
+    if(activeVoices[n]) stop(n, true);
 
+    const now = audio.currentTime;
     const freq = 440 * Math.pow(2, (n-69)/12);
+    const vol = (v/127) * 0.35;
+
     const b = audio.createOscillator();
-    const g = audio.createGain();
-    b.type = 'triangle'; b.frequency.value = freq;
-    g.gain.setValueAtTime((v/127)*0.3, audio.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.01, audio.currentTime + 2);
-    b.connect(g); g.connect(audio.destination);
-    b.start();
-    activeVoices[n] = { b, g };
+    const bg = audio.createGain();
+    b.type = 'triangle';
+    b.frequency.value = freq;
+    
+    const t = audio.createOscillator();
+    const tg = audio.createGain();
+    t.type = 'sine';
+    t.frequency.value = freq * 3.001; 
+
+    const m = audio.createGain();
+    m.gain.setValueAtTime(0, now);
+    m.gain.linearRampToValueAtTime(vol, now + 0.005);
+    m.gain.exponentialRampToValueAtTime(vol * 0.05, now + 2.5);
+
+    bg.gain.value = 0.8;
+    tg.gain.setValueAtTime(0.4, now);
+    tg.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+
+    b.connect(bg); bg.connect(m);
+    t.connect(tg); tg.connect(m);
+    m.connect(audio.destination);
+
+    b.start(); t.start();
+    activeVoices[n] = { b, t, g: m };
+    document.getElementById('k'+n)?.classList.add('on');
+    flashMyDot(true);
   }
 
-  function stop(n, remoteId = null) {
+  function stop(n, force = false) {
     document.getElementById('k'+n)?.classList.remove('on');
-    const dot = document.getElementById('d-' + (remoteId || socket.id));
-    if (dot) dot.classList.remove('act');
-
-    if(remoteId) {
-      sendToMidiOut([0x80, n, 0]);
-    }
-
     const v = activeVoices[n];
-    if(v && !v.isDummy) {
-      v.g.gain.linearRampToValueAtTime(0, audio.currentTime + 0.1);
-      setTimeout(() => { if(v.b) v.b.stop(); v.g.disconnect(); }, 150);
-    }
+    if(!v) return;
+    if(isSustainOn && !force) { sustainedNotes.add(n); return; }
+
+    const now = audio.currentTime;
+    v.g.gain.cancelScheduledValues(now);
+    v.g.gain.setValueAtTime(v.g.gain.value, now);
+    v.g.gain.linearRampToValueAtTime(0, now + 0.15); 
+
+    setTimeout(() => { v.b.stop(); v.t.stop(); v.g.disconnect(); }, 200);
     delete activeVoices[n];
+    sustainedNotes.delete(n);
+    if (Object.keys(activeVoices).length === 0) flashMyDot(false);
+  }
+
+  function handleSustain(v) {
+    isSustainOn = v >= 64;
+    if(!isSustainOn) { sustainedNotes.forEach(n => stop(n, true)); sustainedNotes.clear(); }
   }
 
   function tx(s, n, v) {
-    if((s & 0xF0) === 0x90 && v > 0) play(n, v); else stop(n);
+    if(audio.state === 'suspended') audio.resume();
+    if(s === 176 && n === 64) handleSustain(v);
+    else if(s===144 && v>0) play(n,v); else stop(n);
+    
+    const m = JSON.stringify([s, n, v]);
+    for (const id in peers) if (peers[id].dataChannel?.readyState === 'open') peers[id].dataChannel.send(m);
     if (window.currentRoom) socket.emit('midi-msg', { roomName: window.currentRoom, msg: [s, n, v] });
   }
 
-  // 건반 생성 및 이벤트는 이전과 동일
   const pEl = document.getElementById('piano');
   for(let i=21; i<=108; i++) {
     const isB = [1,3,6,8,10].includes(i%12);
     const d = document.createElement('div');
-    d.id = 'k'+i; d.className = `k ${isB?'b':'w'}`;
+    d.id = 'k'+i; d.className = `k ${isB?'b':'w'}`; d.draggable = false; 
     pEl.appendChild(d);
   }
 
   let amk = null;
-  pEl.addEventListener('mousedown', e => { const k = e.target.closest('.k'); if(k){ amk = parseInt(k.id.replace('k','')); tx(0x90, amk, 100); }});
-  window.addEventListener('mouseup', () => { if(amk){ tx(0x80, amk, 0); amk = null; }});
-
-  function createRoom() {
-    const r = document.getElementById('rn').value, n = document.getElementById('nm').value, p = document.getElementById('pw').value;
-    if(!r || !n) return alert("Room and Name required!");
-    window.currentRoom = r;
-    socket.emit('create-room', { roomName: r, userName: n, password: p });
-    initMIDI();
-  }
-
-  function toggleMute() {
-    isMuted = !isMuted;
-    document.getElementById('mute-text').innerText = isMuted ? "SOUND OFF" : "SOUND ON";
-    document.getElementById('mute-btn').classList.toggle('active', !isMuted);
-  }
-
-  socket.on('join-success', d => {
-    document.getElementById('login-form').style.display = 'none';
-    document.getElementById('connected-ui').style.display = 'flex';
-    document.getElementById('room-name-display').innerText = d.roomName;
-    upd(d.users);
-  });
-
-  socket.on('update-users', us => upd(us));
-  socket.on('remote-midi', d => {
-    const [s, n, v] = d.msg;
-    if((s & 0xF0) === 0x90 && v > 0) play(n, v, d.id); else stop(n, d.id);
-  });
-
-  function upd(us) {
-    const container = document.getElementById('users');
-    container.innerHTML = '';
-    us.forEach(u => {
-      const d = document.createElement('div');
-      d.className = 'u-card';
-      d.innerHTML = `<span class="u-dot" id="d-${u.id}"></span>${u.name.toUpperCase()}`;
-      container.appendChild(d);
-    });
-  }
+  pEl.addEventListener('mousedown', (e) => { const k = e.target.closest('.k'); if(k) { e.preventDefault(); const n = parseInt(k.id.replace('k','')); amk = n; tx(144, n, 100); } });
+  pEl.addEventListener('mouseover', (e) => { if(e.buttons !== 1) return; const k = e.target.closest('.k'); if(k) { const n = parseInt(k.id.replace('k','')); if(amk !== n) { if(amk) tx(128, amk, 0); amk = n; tx(144, n, 100); } } });
+  window.addEventListener('mouseup', () => { if(amk) { tx(128, amk, 0); amk = null; } });
 
   socket.on('room-list', rs => {
     const c = document.getElementById('active-rooms');
-    c.innerHTML = '';
-    rs.forEach(r => {
-      const b = document.createElement('div'); b.className = 'room-tag'; b.innerText = r;
-      b.onclick = () => { document.getElementById('rn').value = r; createRoom(); };
-      c.appendChild(b);
-    });
+    if(rs.length === 0) { c.innerHTML = '<span style="color:#333; font-size:10px;">No rooms found.</span>'; return; }
+    c.innerHTML = ''; rs.forEach(r => { const b = document.createElement('div'); b.className = 'room-tag'; b.innerText = r; b.onclick = () => selectRoom(r); c.appendChild(b); });
   });
 
+  function selectRoom(r) { document.getElementById('rn').value = r; document.getElementById('rn').readOnly = true; const b = document.getElementById('btn-action'); b.innerText = "JOIN"; b.className = "btn-join"; b.onclick = joinRoom; document.getElementById('btn-cancel').style.display = 'inline-block'; document.getElementById('pw').focus(); }
+  function resetLobbyMode() { document.getElementById('rn').value = ''; document.getElementById('rn').readOnly = false; const b = document.getElementById('btn-action'); b.innerText = "CREATE"; b.className = "btn-create"; b.onclick = createRoom; document.getElementById('btn-cancel').style.display = 'none'; }
+  function validate() { const r = document.getElementById('rn').value.trim(), pw = document.getElementById('pw').value.trim(), n = document.getElementById('nm').value.trim(); if(!r || !pw || !n) { alert("Check fields!"); return null; } return { r, pw, n }; }
+  function createRoom() { const d = validate(); if(!d) return; audio.resume(); socket.emit('create-room', { roomName: d.r, userName: d.n, password: d.pw }); window.currentRoom = d.r; }
+  function joinRoom() { const d = validate(); if(!d) return; audio.resume(); socket.emit('join-room', { roomName: d.r, userName: d.n, password: d.pw }); window.currentRoom = d.r; }
+
+  socket.on('join-success', d => { document.getElementById('login-form').style.display = 'none'; document.getElementById('lobby-wrap').style.display = 'none'; document.getElementById('connected-ui').style.display = 'flex'; document.getElementById('room-name-display').innerText = d.roomName; upd(d.users); });
+  socket.on('remote-midi', d => { const [s,n,v] = d.msg; if(s === 176 && n === 64) handleSustain(v); else if(s===144 && v>0) play(n,v); else stop(n); flash(d.id); });
+  socket.on('ping-res', t => { const ms = Date.now() - t; document.getElementById('net-ping').innerText = ms + " MS"; document.getElementById('net-mode').innerText = ms < 50 ? "PERFECT" : "STABLE"; });
   setInterval(() => { if(window.currentRoom) socket.emit('ping-req', Date.now()); }, 2000);
+
+  function setupPeerConnection(id, init) {
+    const pc = new RTCPeerConnection(rtcConfig); peers[id] = { pc: pc, dataChannel: null };
+    pc.onicecandidate = e => { if (e.candidate) socket.emit('webrtc-signal', { to: id, signal: { candidate: e.candidate } }); };
+    const setupDC = (dc) => {
+      peers[id].dataChannel = dc;
+      dc.onmessage = e => {
+        const d = JSON.parse(e.data);
+        const [s, n, v] = d; if(s === 176 && n === 64) handleSustain(v); else if(s===144 && v>0) play(n,v); else stop(n); flash(id);
+      };
+    };
+    if (init) { const dc = pc.createDataChannel('midi'); setupDC(dc); pc.createOffer().then(o => pc.setLocalDescription(o)).then(() => socket.emit('webrtc-signal', { to: id, signal: { offer: pc.localDescription } })); } 
+    else { pc.ondatachannel = e => setupDC(e.channel); }
+  }
+  socket.on('user-joined', u => { addU(u); setupPeerConnection(u.id, true); });
+  socket.on('webrtc-signal', async d => { const { from, signal: s } = d; if (!peers[from]) setupPeerConnection(from, false); const pc = peers[from].pc; if (s.offer) { await pc.setRemoteDescription(new RTCSessionDescription(s.offer)); const a = await pc.createAnswer(); await pc.setLocalDescription(a); socket.emit('webrtc-signal', { to: from, signal: { answer: pc.localDescription } }); } else if (s.answer) await pc.setRemoteDescription(new RTCSessionDescription(s.answer)); else if (s.candidate) await pc.addIceCandidate(new RTCIceCandidate(s.candidate)); });
+
+  function upd(us) { document.getElementById('users').innerHTML=''; us.forEach(addU); }
+  function addU(u) { if(document.getElementById('u-'+u.id)) return; const d = document.createElement('div'); d.className = 'u-card'; d.id='u-'+u.id; d.innerHTML=`<span class="u-dot" id="d-${u.id}"></span>${u.name.toUpperCase()}`; document.getElementById('users').appendChild(d); }
+  function flash(id) { const d = document.getElementById('d-'+id); if(d) { d.classList.add('act'); setTimeout(()=>d.classList.remove('act'), 100); } }
+  if(navigator.requestMIDIAccess) { navigator.requestMIDIAccess().then(m => { for(let i of m.inputs.values()) i.onmidimessage = e => tx(e.data[0], e.data[1], e.data[2]); }); }
 </script>
 </body>
 </html>
