@@ -1,218 +1,30 @@
-const now = audio.currentTime;
-    const freq = 440 * Math.pow(2, (n-69)/12);
-    const vol = (v/127) * 0.4;
+// (앞부분 생략 - 기존 스타일 및 HTML 구조 동일)
 
-    // 1. Body Sound (Triangle)
-    const body = audio.createOscillator();
-    const bodyGain = audio.createGain();
-    body.type = 'triangle';
-    body.frequency.value = freq;
+  // 1. 방 만들기/참가 시 오디오 엔진 깨우기 (이게 핵심입니다!)
+  function createRoom() { 
+    const d = validate(); 
+    if(!d) return; 
     
-    // 2. Bell Sound (Sine Tine)
-    const bell = audio.createOscillator();
-    const bellGain = audio.createGain();
-    bell.type = 'sine';
-    bell.frequency.value = freq * 3.001; 
+    // 사용자가 버튼을 눌렀으므로 여기서 오디오 허용!
+    if(audio.state === 'suspended') audio.resume().then(() => {
+      console.log("Audio Context resumed successfully.");
+    });
 
-    const masterGain = audio.createGain();
-    masterGain.gain.setValueAtTime(0, now);
-    masterGain.gain.linearRampToValueAtTime(vol, now + 0.005);
-    masterGain.gain.exponentialRampToValueAtTime(vol * 0.05, now + 2.5);
-
-    bodyGain.gain.value = 0.8;
-    bellGain.gain.setValueAtTime(0.4, now);
-    bellGain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
-
-    body.connect(bodyGain); bodyGain.connect(masterGain);
-    bell.connect(bellGain); bellGain.connect(masterGain);
-    masterGain.connect(audio.destination);
-
-    body.start();
-    bell.start();
-
-    activeVoices[n] = { body, bell, gain: masterGain };
-    document.getElementById('k'+n)?.classList.add('on');
+    socket.emit('create-room', { roomName: d.r, userName: d.n, password: d.pw }); 
+    window.currentRoom = d.r; 
   }
 
-  function stop(n, force = false) {
-    document.getElementById('k'+n)?.classList.remove('on');
-    const voice = activeVoices[n];
-    if(!voice) return;
-    
-    if(isSustainOn && !force) {
-      sustainedNotes.add(n);
-      return;
-    }
+  function joinRoom() { 
+    const d = validate(); 
+    if(!d) return; 
 
-    const { body, bell, gain } = voice;
-    const now = audio.currentTime;
-    gain.gain.cancelScheduledValues(now);
-    gain.gain.setValueAtTime(gain.gain.value, now);
-    gain.gain.linearRampToValueAtTime(0, now + 0.15); 
+    // 여기서도 오디오 허용!
+    if(audio.state === 'suspended') audio.resume().then(() => {
+      console.log("Audio Context resumed successfully.");
+    });
 
-    setTimeout(() => {
-      body.stop(); body.disconnect();
-      bell.stop(); bell.disconnect();
-      gain.disconnect();
-    }, 200);
-    
-    delete activeVoices[n];
-    sustainedNotes.delete(n);
+    socket.emit('join-room', { roomName: d.r, userName: d.n, password: d.pw }); 
+    window.currentRoom = d.r; 
   }
 
-  function handleSustain(val) {
-    isSustainOn = val >= 64;
-    if(!isSustainOn) {
-      sustainedNotes.forEach(n => stop(n, true));
-      sustainedNotes.clear();
-    }
-  }
-
-  function tx(s, n, v) {
-    if(audio.state === 'suspended') audio.resume();
-    if(s === 176 && n === 64) handleSustain(v);
-    else if(s===144 && v>0) play(n,v); 
-    else stop(n);
-    
-    const msg = JSON.stringify([s, n, v]);
-    for (const id in peers) {
-      if (peers[id].dataChannel?.readyState === 'open') peers[id].dataChannel.send(msg);
-    }
-    if (window.currentRoom) socket.emit('midi-msg', { roomName: window.currentRoom, msg: [s, n, v] });
-  }
-
-  const pianoEl = document.getElementById('piano');
-  for(let i=21; i<=108; i++) {
-    const isB = [1,3,6,8,10].includes(i%12);
-    const d = document.createElement('div');
-    d.id = 'k'+i; d.className = `k ${isB?'b':'w'}`;
-    d.draggable = false; 
-    pianoEl.appendChild(d);
-  }
-
-  let activeMouseKey = null;
-  pianoEl.addEventListener('mousedown', (e) => {
-    const k = e.target.closest('.k');
-    if(k) { e.preventDefault(); const n = parseInt(k.id.replace('k','')); activeMouseKey = n; tx(144, n, 100); }
-  });
-  pianoEl.addEventListener('mouseover', (e) => {
-    if(e.buttons !== 1) return; 
-    const k = e.target.closest('.k');
-    if(k) {
-      const n = parseInt(k.id.replace('k',''));
-      if(activeMouseKey !== n) { if(activeMouseKey) tx(128, activeMouseKey, 0); activeMouseKey = n; tx(144, n, 100); }
-    }
-  });
-  window.addEventListener('mouseup', () => { if(activeMouseKey) { tx(128, activeMouseKey, 0); activeMouseKey = null; } });
-  pianoEl.addEventListener('mouseleave', () => { if(activeMouseKey) { tx(128, activeMouseKey, 0); activeMouseKey = null; } });
-
-  const activeTouches = {};
-  pianoEl.addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    for (let t of e.changedTouches) {
-      const el = document.elementFromPoint(t.clientX, t.clientY);
-      if (el?.classList.contains('k')) { const n = parseInt(el.id.replace('k','')); activeTouches[t.identifier] = n; tx(144, n, 100); }
-    }
-  }, {passive: false});
-  pianoEl.addEventListener('touchmove', (e) => {
-    e.preventDefault();
-    for (let t of e.changedTouches) {
-      const el = document.elementFromPoint(t.clientX, t.clientY);
-      const pn = activeTouches[t.identifier];
-      if (el?.classList.contains('k')) {
-        const cn = parseInt(el.id.replace('k',''));
-        if (pn !== cn) { if (pn) tx(128, pn, 0); activeTouches[t.identifier] = cn; tx(144, cn, 100); }
-      }
-    }
-  }, {passive: false});
-  pianoEl.addEventListener('touchend', (e) => {
-    for (let t of e.changedTouches) { const pn = activeTouches[t.identifier]; if (pn) { tx(128, pn, 0); delete activeTouches[t.identifier]; } }
-  });
-
-  socket.on('room-list', rs => {
-    const c = document.getElementById('active-rooms');
-    if(rs.length === 0) { c.innerHTML = '<span style="color:#444; font-size:11px;">No active rooms found.</span>'; return; }
-    c.innerHTML = ''; rs.forEach(r => { const b = document.createElement('div'); b.className = 'room-tag'; b.innerText = r; b.onclick = () => selectRoom(r); c.appendChild(b); });
-  });
-
-  function selectRoom(r) {
-    document.getElementById('rn').value = r; document.getElementById('rn').readOnly = true; 
-    const b = document.getElementById('btn-action'); b.innerText = "JOIN"; b.className = "btn-join"; b.onclick = joinRoom;
-    document.getElementById('btn-cancel').style.display = 'inline-block'; document.getElementById('pw').focus(); 
-  }
-  function resetLobbyMode() {
-    document.getElementById('rn').value = ''; document.getElementById('rn').readOnly = false;
-    const b = document.getElementById('btn-action'); b.innerText = "CREATE"; b.className = "btn-create"; b.onclick = createRoom;
-    document.getElementById('btn-cancel').style.display = 'none';
-  }
-  function validate() {
-    const r = document.getElementById('rn').value.trim(), pw = document.getElementById('pw').value.trim(), n = document.getElementById('nm').value.trim();
-    if(!r || !pw || !n) { alert("Please fill in all fields."); return null; }
-    return { r, pw, n };
-  }
-  function createRoom() { const d = validate(); if(!d) return; socket.emit('create-room', { roomName: d.r, userName: d.n, password: d.pw }); window.currentRoom = d.r; }
-  function joinRoom() { const d = validate(); if(!d) return; socket.emit('join-room', { roomName: d.r, userName: d.n, password: d.pw }); window.currentRoom = d.r; }
-
-  socket.on('join-success', d => {
-    document.getElementById('login-form').style.display = 'none'; document.getElementById('lobby-wrap').style.display = 'none'; 
-    document.getElementById('connected-ui').style.display = 'flex'; document.getElementById('room-name-display').innerText = `[ ${d.roomName} ]`; upd(d.users);
-  });
-
-  socket.on('user-left', id => { document.getElementById('u-'+id)?.remove(); if(peers[id]) { peers[id].pc.close(); delete peers[id]; } });
-  socket.on('remote-midi', d => { 
-    const [s,n,v] = d.msg; 
-    if(s === 176 && n === 64) handleSustain(v); else if(s===144 && v>0) play(n,v); else stop(n); 
-    flash(d.id); 
-  });
-
-  socket.on('ping-res', t => { 
-    const ms = Date.now() - t; const pE = document.getElementById('net-ping'); const mE = document.getElementById('net-mode');
-    pE.innerText = ms + " MS"; pE.style.color = ms < 50 ? "#0f8" : (ms < 150 ? "#ffeb3b" : "#ff4444");
-    mE.innerText = ms < 50 ? "EXCELLENT" : (ms < 150 ? "STABLE" : "POOR");
-  });
-
-  setInterval(() => {
-    if(!window.currentRoom) return;
-    let p2p = false; for(const p in peers) { if(peers[p].dataChannel?.readyState === 'open') p2p = true; }
-    const mE = document.getElementById('net-mode');
-    if(p2p) {
-      mE.innerText = "DIRECT ⚡"; mE.style.color = "#0f8";
-      for(const p in peers) { peers[p].dataChannel.send(JSON.stringify(['ping', Date.now()])); }
-    } else {
-      socket.emit('ping-req', Date.now());
-    }
-  }, 2000);
-
-  function setupPeerConnection(id, init) {
-    const pc = new RTCPeerConnection(rtcConfig); peers[id] = { pc: pc, dataChannel: null };
-    pc.onicecandidate = e => { if (e.candidate) socket.emit('webrtc-signal', { to: id, signal: { candidate: e.candidate } }); };
-    const setupDC = (dc) => {
-      peers[id].dataChannel = dc;
-      dc.onmessage = e => {
-        const d = JSON.parse(e.data);
-        if(d[0] === 'ping') { dc.send(JSON.stringify(['pong', d[1]])); return; }
-        if(d[0] === 'pong') { /* Ping handled by global interval */ return; }
-        const [s, n, v] = d; if(s === 176 && n === 64) handleSustain(v); else if(s===144 && v>0) play(n,v); else stop(n); flash(id);
-      };
-    };
-    if (init) { const dc = pc.createDataChannel('midi'); setupDC(dc); pc.createOffer().then(o => pc.setLocalDescription(o)).then(() => socket.emit('webrtc-signal', { to: id, signal: { offer: pc.localDescription } })); } 
-    else { pc.ondatachannel = e => setupDC(e.channel); }
-  }
-
-  socket.on('user-joined', u => { addU(u); setupPeerConnection(u.id, true); });
-  socket.on('webrtc-signal', async d => {
-    const { from, signal: s } = d; if (!peers[from]) setupPeerConnection(from, false); const pc = peers[from].pc;
-    if (s.offer) { await pc.setRemoteDescription(new RTCSessionDescription(s.offer)); const a = await pc.createAnswer(); await pc.setLocalDescription(a); socket.emit('webrtc-signal', { to: from, signal: { answer: pc.localDescription } }); } 
-    else if (s.answer) await pc.setRemoteDescription(new RTCSessionDescription(s.answer)); else if (s.candidate) await pc.addIceCandidate(new RTCIceCandidate(s.candidate));
-  });
-
-  function upd(us) { document.getElementById('users').innerHTML=''; us.forEach(addU); }
-  function addU(u) { if(document.getElementById('u-'+u.id)) return; const d = document.createElement('div'); d.className = 'u-card'; d.id='u-'+u.id; d.innerHTML=`<span class="u-dot" id="d-${u.id}"></span>${u.name.toUpperCase()}`; document.getElementById('users').appendChild(d); }
-  function flash(id) { const d = document.getElementById('d-'+id); if(d) { d.classList.add('act'); setTimeout(()=>d.classList.remove('act'), 100); } }
-  
-  if(navigator.requestMIDIAccess) {
-    navigator.requestMIDIAccess().then(m => { for(let i of m.inputs.values()) i.onmidimessage = e => tx(e.data[0], e.data[1], e.data[2]); });
-  }
-</script>
-</body>
-</html>
+  // (뒷부분 생략 - 나머지 로직 동일)
