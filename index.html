@@ -5,185 +5,225 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Remote Piano</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-    body { background:#0a0a0a; color:#fff; display:flex; flex-direction:column; height:100vh; margin:0; overflow:hidden; font-family:'Inter', sans-serif; touch-action:none; user-select:none; -webkit-user-select:none; }
+    body { background:#111; color:#fff; display:flex; flex-direction:column; height:100vh; margin:0; overflow:hidden; font-family:sans-serif; touch-action:none; }
     
-    header { padding:18px 25px; display:flex; flex-direction:column; gap:12px; background:linear-gradient(to bottom, #1a1a1a, #111); border-bottom:1px solid #333; z-index:10; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-    .header-top { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:15px; }
-    .logo { font-size:22px; font-weight:900; color:#0f8; letter-spacing:1px; text-transform:uppercase; display:flex; align-items:center; gap:10px; text-shadow: 0 0 15px rgba(0,255,136,0.3); }
+    header { padding:15px 25px; display:flex; justify-content:space-between; align-items:center; background:#1a1a1a; border-bottom:1px solid #333; z-index:10; box-shadow:0 4px 10px rgba(0,0,0,0.5); }
+    .logo { font-size:22px; font-weight:bold; color:#0f8; letter-spacing:1px; }
     
-    .auth-container { display:flex; flex-direction:column; gap:10px; align-items:flex-end; }
-    .control-group { display:flex; gap:8px; align-items:center; }
+    .control-group { display:flex; gap:10px; align-items:center; }
+    input { padding:10px 15px; background:#222; border:1px solid #444; color:#fff; border-radius:5px; font-size:14px; outline:none; transition:0.2s; width:130px; }
+    input:focus { border-color:#0f8; }
+    button { padding:10px 20px; border:none; border-radius:5px; font-weight:bold; font-size:14px; cursor:pointer; transition:0.2s; }
+    .btn-join { background:#0f8; color:#000; }
+    .btn-leave { background:#ff4444; color:#fff; }
+
+    .status-wrap { display:flex; align-items:center; gap:15px; background:rgba(0,0,0,0.5); padding:8px 15px; border-radius:10px; border:1px solid #333; }
+    .net-info { text-align:right; display:flex; flex-direction:column; gap:3px; }
+    #net-mode { font-size:12px; font-weight:bold; color:#888; }
+    #net-ping { font-size:14px; font-weight:bold; color:#888; font-family:monospace; }
     
-    input { padding:12px 16px; background:#161616; border:1px solid #333; color:#fff; border-radius:12px; font-size:13px; outline:none; transition:0.3s; width:130px; font-weight:600; }
-    input:focus { border-color:#0f8; background:#1a1a1a; box-shadow:0 0 0 3px rgba(0,255,136,0.1); }
-    input[readonly] { color:#0f8; font-weight:800; border-style:dashed; cursor:not-allowed; }
+    #users { padding:20px; display:flex; gap:20px; flex-wrap:wrap; justify-content:center; min-height:40px; }
+    .u-card { background:#2a2a2a; padding:12px 25px; border-radius:30px; display:flex; align-items:center; gap:10px; border:1px solid #555; font-size:18px; font-weight:bold; }
+    .u-dot { width:12px; height:12px; background:#555; border-radius:50%; transition:0.1s; }
+    .u-dot.act { background:#0f8; box-shadow:0 0 10px #0f8; transform:scale(1.3); }
     
-    button { padding:12px 20px; border:none; border-radius:12px; font-weight:800; font-size:12px; cursor:pointer; transition:0.2s; display:flex; align-items:center; gap:8px; text-transform:uppercase; letter-spacing:0.5px; }
-    .btn-create { background:#0f8; color:#000; } 
-    .btn-leave { background:#222; color:#ff4444; border:1px solid #333; }
-
-    .btn-mute { background:#1a1a1a; color:#666; border:1px solid #333; min-width:140px; justify-content:center; }
-    .btn-mute.active { color:#0f8; border-color:rgba(0,255,136,0.4); background:rgba(0,255,136,0.05); }
-
-    .lobby-area { display:flex; gap:10px; align-items:center; justify-content: flex-end; width: 100%; margin-top:-2px; }
-    #active-rooms { display:flex; gap:6px; flex-wrap:wrap; justify-content: flex-end; }
-    .room-tag { padding:5px 12px; background:#111; border:1px solid #222; border-radius:8px; cursor:pointer; font-size:11px; color:#777; font-weight:700; }
-
-    #users { padding:15px; display:flex; gap:12px; flex-wrap:wrap; justify-content:center; min-height:50px; }
-    .u-card { background:#161616; padding:8px 18px; border-radius:25px; display:flex; align-items:center; gap:10px; border:1px solid #222; font-size:14px; font-weight:800; color:#ccc; }
-    .u-dot { width:8px; height:8px; background:#333; border-radius:50%; transition:0.1s; }
-    .u-dot.act { background:#0f8; box-shadow:0 0 12px #0f8; transform:scale(1.4); }
-
-    #piano-container { flex:1; display:flex; align-items:flex-start; justify-content:center; background:#050505; position:relative; overflow-x:auto; padding-top:40px; }
-    #piano-container::before { content:''; position:absolute; top:0; left:0; right:0; height:45px; background:linear-gradient(to bottom, #1a1a1a, #000); border-bottom:2px solid #333; z-index:5; }
-    #piano { display:flex; position:relative; }
-    .k { position:relative; cursor:pointer; }
-    .w { width:42px; height:260px; background:linear-gradient(to bottom, #eee 0%, #fff 5%, #f2f2f2 95%, #bbb 100%); border:1px solid #999; border-radius:0 0 5px 5px; z-index:1; box-shadow: inset 0 -5px 10px rgba(0,0,0,0.1), 0 5px 15px rgba(0,0,0,0.4); }
-    .w.on { background:linear-gradient(to bottom, #ffcc00, #ff9900) !important; box-shadow: 0 0 30px rgba(255,165,0,0.8); }
-    .b { width:26px; height:160px; background:linear-gradient(to bottom, #333 0%, #111 10%, #000 90%, #222 100%); margin:0 -13px 100px -13px; z-index:2; border-radius:0 0 3px 3px; border:1px solid #000; box-shadow: 2px 5px 10px rgba(0,0,0,0.6); }
-    .b.on { background:linear-gradient(to bottom, #ccaa00, #886600) !important; box-shadow: 0 0 25px rgba(255,200,0,0.6); }
+    #piano { flex:1; display:flex; align-items:flex-start; padding-top:60px; justify-content:center; position:relative; overflow-x:auto; background:linear-gradient(to bottom, #111, #050505); }
+    .k { position:relative; border-radius:0 0 5px 5px; cursor:pointer; transition:transform 0.05s, background 0.05s; }
+    .w { width:38px; height:240px; background:#fff; border:1px solid #ccc; z-index:1; margin-right: -1px; }
+    .w.on { background:#ffe600; box-shadow:0 0 15px rgba(255,230,0,0.5); transform:translateY(2px); }
+    
+    .b { width:24px; height:150px; background:#000; margin:0 -12px 90px -12px; z-index:2; border:1px solid #222; }
+    .b.on { background:#ffe600 !important; box-shadow:0 0 15px rgba(255,230,0,0.5); transform:translateY(2px); }
   </style>
 </head>
 <body>
 
 <header>
-  <div class="header-top">
-    <div class="logo"><span>🎹</span> SESSION PIANO</div>
-    <div class="auth-container" id="login-form">
-      <div class="control-group">
-        <input id="rn" placeholder="Room Name" autocomplete="off">
-        <input id="pw" type="text" placeholder="Pass" maxlength="4">
-        <input id="nm" placeholder="Name" autocomplete="off">
-        <button class="btn-create" id="btn-action" onclick="createRoom()">CREATE</button>
-      </div>
-      <div class="lobby-area" id="lobby-wrap">
-        <div id="active-rooms"></div>
+  <div class="logo">🎹 Remote Piano</div>
+  <div class="control-group" id="login-form">
+    <input id="rn" placeholder="방 이름">
+    <input id="pw" type="password" placeholder="비밀번호">
+    <input id="nm" placeholder="닉네임">
+    <button class="btn-join" onclick="join()">접속</button>
+  </div>
+  <div class="control-group" id="connected-ui" style="display:none;">
+    <div class="status-wrap">
+      <div class="net-info">
+        <div id="net-mode">대기중</div>
+        <div id="net-ping">-- ms</div>
       </div>
     </div>
-    <div class="control-group" id="connected-ui" style="display:none;">
-      <div id="room-name-display" style="font-weight:900; color:#0f8; font-size:16px;"></div>
-      <button id="mute-btn" class="btn-mute active" onclick="toggleMute()"><span id="mute-text">SOUND ON</span></button>
-      <button class="btn-leave" onclick="location.reload()">EXIT</button>
-    </div>
+    <button class="btn-leave" onclick="location.reload()">접속 끊기</button>
   </div>
 </header>
 
 <div id="users"></div>
-<div id="piano-container"><div id="piano"></div></div>
+<div id="piano"></div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
   const audio = new (window.AudioContext||window.webkitAudioContext)();
   const socket = io();
-  const activeVoices = {};
-  let midiOutputs = [];
-  let isMuted = false;
+  const oscs = {}, gains = {};
+  let midiOutputs = []; 
+  const echoBlock = {}; 
+  const peers = {}; 
+  const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }; 
 
-  // 1. MIDI 초기화 (출력 장치 포함)
-  if(navigator.requestMIDIAccess) {
-    navigator.requestMIDIAccess().then(m => {
-      for(let i of m.inputs.values()) i.onmidimessage = e => tx(e.data[0], e.data[1], e.data[2]);
-      midiOutputs = Array.from(m.outputs.values());
-    });
-  }
+  let isDragging = false;
+  document.addEventListener('mousedown', () => isDragging = true);
+  document.addEventListener('mouseup', () => isDragging = false);
 
-  function toggleMute() {
-    isMuted = !isMuted;
-    document.getElementById('mute-text').innerText = isMuted ? "SOUND OFF" : "SOUND ON";
-    if(isMuted) Object.keys(activeVoices).forEach(n => stop(n, true));
-  }
-
-  function play(n, v, remoteId = null) {
+  function play(n, v) {
+    if(oscs[n]) stop(n);
+    const o = audio.createOscillator();
+    const g = audio.createGain();
+    o.type = 'triangle';
+    o.frequency.value = 440 * Math.pow(2, (n-69)/12);
+    const vol = (v/127) * 0.4;
+    g.gain.setValueAtTime(0, audio.currentTime);
+    g.gain.linearRampToValueAtTime(vol, audio.currentTime + 0.005);
+    g.gain.exponentialRampToValueAtTime(vol * 0.1, audio.currentTime + 1.5);
+    o.connect(g); g.connect(audio.destination);
+    o.start();
+    oscs[n]=o; gains[n]=g;
     document.getElementById('k'+n)?.classList.add('on');
-    const dot = document.getElementById('d-' + (remoteId || socket.id));
-    if (dot) dot.classList.add('act');
-
-    // 상대방 신호를 내 로직(IAC)으로 전송
-    if(remoteId) {
-      midiOutputs.forEach(out => { if(out.name.includes("IAC") || out.name.includes("Bus")) out.send([0x90, n, v]); });
-    }
-
-    if(isMuted && !remoteId) return;
-    const osc = audio.createOscillator();
-    const gain = audio.createGain();
-    osc.type = 'triangle';
-    osc.frequency.value = 440 * Math.pow(2, (n-69)/12);
-    gain.gain.setValueAtTime((v/127)*0.3, audio.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, audio.currentTime + 2);
-    osc.connect(gain); gain.connect(audio.destination);
-    osc.start();
-    activeVoices[n] = { osc, gain };
   }
 
-  function stop(n, remoteId = null) {
+  function stop(n) {
+    if(gains[n]) {
+      gains[n].gain.cancelScheduledValues(audio.currentTime);
+      gains[n].gain.linearRampToValueAtTime(0, audio.currentTime + 0.04);
+    }
+    const o = oscs[n];
+    setTimeout(() => { if(o) { o.stop(); o.disconnect(); } }, 50);
+    delete oscs[n]; delete gains[n];
     document.getElementById('k'+n)?.classList.remove('on');
-    const dot = document.getElementById('d-' + (remoteId || socket.id));
-    if (dot) dot.classList.remove('act');
-
-    if(remoteId) {
-      midiOutputs.forEach(out => { if(out.name.includes("IAC") || out.name.includes("Bus")) out.send([0x80, n, 0]); });
-    }
-
-    const v = activeVoices[n];
-    if(v) {
-      v.gain.gain.linearRampToValueAtTime(0, audio.currentTime + 0.1);
-      setTimeout(() => { v.osc.stop(); v.gain.disconnect(); }, 150);
-      delete activeVoices[n];
-    }
   }
 
   function tx(s, n, v) {
-    if((s & 0xF0) === 0x90 && v > 0) play(n, v); else stop(n);
-    if (window.currentRoom) socket.emit('midi-msg', { roomName: window.currentRoom, msg: [s, n, v] });
+    if(audio.state === 'suspended') audio.resume();
+    if(s === 144 && v > 0) play(n, v); else stop(n);
+    
+    let sentP2P = false;
+    const msg = JSON.stringify([s, n, v]);
+    for (const id in peers) {
+      if (peers[id].dataChannel?.readyState === 'open') {
+        peers[id].dataChannel.send(msg);
+        sentP2P = true;
+      }
+    }
+    if (!sentP2P && window.currentRoom) socket.emit('midi-msg', { roomName: window.currentRoom, msg: [s, n, v] });
   }
 
   // 건반 생성
-  const pEl = document.getElementById('piano');
+  const pianoEl = document.getElementById('piano');
   for(let i=21; i<=108; i++) {
     const isB = [1,3,6,8,10].includes(i%12);
     const d = document.createElement('div');
     d.id = 'k'+i; d.className = `k ${isB?'b':'w'}`;
-    pEl.appendChild(d);
+    d.addEventListener('mousedown', (e) => { e.preventDefault(); tx(144, i, 100); });
+    d.addEventListener('mouseenter', (e) => { if(isDragging) tx(144, i, 100); });
+    d.addEventListener('mouseleave', () => tx(128, i, 0));
+    d.addEventListener('mouseup', () => tx(128, i, 0));
+    pianoEl.appendChild(d);
   }
 
-  function createRoom() {
-    const r = document.getElementById('rn').value, n = document.getElementById('nm').value;
+  function join() {
+    const r = document.getElementById('rn').value, pw = document.getElementById('pw').value, n = document.getElementById('nm').value;
+    if(!r || !pw || !n) return alert("항목을 모두 입력해주세요!");
+    if(audio.state === 'suspended') audio.resume();
+    socket.emit('join-room', { roomName: r, userName: n, password: pw });
     window.currentRoom = r;
-    socket.emit('create-room', { roomName: r, userName: n, password: document.getElementById('pw').value });
-  }
-
-  function upd(us) {
-    const c = document.getElementById('users'); c.innerHTML = '';
-    us.forEach(u => {
-      const d = document.createElement('div'); d.className = 'u-card';
-      d.innerHTML = `<span class="u-dot" id="d-${u.id}"></span>${u.name.toUpperCase()}`;
-      c.appendChild(d);
-    });
   }
 
   socket.on('join-success', d => {
     document.getElementById('login-form').style.display = 'none';
     document.getElementById('connected-ui').style.display = 'flex';
-    document.getElementById('room-name-display').innerText = d.roomName;
     upd(d.users);
   });
 
-  // 유저 목록 실시간 동기화
   socket.on('update-users', us => upd(us));
   socket.on('remote-midi', d => {
     const [s, n, v] = d.msg;
-    if((s & 0xF0) === 0x90 && v > 0) play(n, v, d.id); else stop(n, d.id);
+    echoBlock[`${s}-${n}`] = Date.now();
+    if(s === 144 && v > 0) play(n, v); else stop(n);
+    flash(d.id);
+    midiOutputs.forEach(o => { try { o.send([s, n, v]); } catch(e) {} });
   });
 
-  socket.on('room-list', rs => {
-    const c = document.getElementById('active-rooms'); c.innerHTML = '';
-    rs.forEach(r => {
-      const b = document.createElement('div'); b.className = 'room-tag'; b.innerText = r;
-      b.onclick = () => { document.getElementById('rn').value = r; createRoom(); };
-      c.appendChild(b);
-    });
+  function updatePing(ms) {
+    const pEl = document.getElementById('net-ping'), mEl = document.getElementById('net-mode');
+    pEl.innerText = ms + " ms";
+    if(ms < 60) { mEl.innerText = "통신상태: 좋음 🟢"; mEl.style.color = "#0f8"; }
+    else if(ms < 150) { mEl.innerText = "통신상태: 중간 🟡"; mEl.style.color = "#ffeb3b"; }
+    else { mEl.innerText = "통신상태: 나쁨 🔴"; mEl.style.color = "#ff4444"; }
+  }
+
+  socket.on('ping-res', t => updatePing(Date.now() - t));
+  setInterval(() => {
+    if(!window.currentRoom) return;
+    socket.emit('ping-req', Date.now());
+  }, 2000);
+
+  // WebRTC
+  function setupPeer(id, init) {
+    const pc = new RTCPeerConnection(rtcConfig);
+    peers[id] = { pc, dataChannel: null };
+    pc.onicecandidate = e => { if(e.candidate) socket.emit('webrtc-signal', { to: id, signal: { candidate: e.candidate } }); };
+    
+    const setupDC = (dc) => {
+      peers[id].dataChannel = dc;
+      dc.onmessage = e => {
+        const data = JSON.parse(e.data);
+        if(data[0] === 'ping') return dc.send(JSON.stringify(['pong', data[1]]));
+        if(data[0] === 'pong') return updatePing(Date.now() - data[1]);
+        const [s, n, v] = data;
+        echoBlock[`${s}-${n}`] = Date.now();
+        if(s === 144 && v > 0) play(n, v); else stop(n);
+        flash(id);
+        midiOutputs.forEach(o => { try { o.send([s, n, v]); } catch(e) {} });
+      };
+    };
+
+    if(init) {
+      const dc = pc.createDataChannel('midi');
+      setupDC(dc);
+      pc.createOffer().then(o => pc.setLocalDescription(o)).then(() => socket.emit('webrtc-signal', { to: id, signal: { offer: pc.localDescription } }));
+    } else {
+      pc.ondatachannel = e => setupDC(e.channel);
+    }
+  }
+
+  socket.on('user-joined', u => { addU(u); setupPeer(u.id, true); });
+  socket.on('webrtc-signal', async d => {
+    if(!peers[d.from]) setupPeer(d.from, false);
+    const pc = peers[d.from].pc;
+    if(d.signal.offer) { await pc.setRemoteDescription(d.signal.offer); const a = await pc.createAnswer(); await pc.setLocalDescription(a); socket.emit('webrtc-signal', { to: d.from, signal: { answer: pc.localDescription } }); }
+    else if(d.signal.answer) await pc.setRemoteDescription(d.signal.answer);
+    else if(d.signal.candidate) await pc.addIceCandidate(d.signal.candidate);
   });
+
+  function upd(us) { document.getElementById('users').innerHTML=''; us.forEach(addU); }
+  function addU(u) {
+    if(document.getElementById('u-'+u.id)) return;
+    const d = document.createElement('div');
+    d.className = 'u-card'; d.id='u-'+u.id;
+    d.innerHTML=`<span class="u-dot" id="d-${u.id}"></span>${u.name.toUpperCase()}`;
+    document.getElementById('users').appendChild(d);
+  }
+  function flash(id) { const d = document.getElementById('d-'+id); if(d) { d.classList.add('act'); setTimeout(()=>d.classList.remove('act'), 100); } }
+
+  if(navigator.requestMIDIAccess) {
+    navigator.requestMIDIAccess().then(m => {
+      for(let i of m.inputs.values()) i.onmidimessage = e => {
+        const [s, n, v] = e.data;
+        if (echoBlock[`${s}-${n}`] && Date.now() - echoBlock[`${s}-${n}`] < 100) return;
+        tx(s, n, v);
+      };
+      for(let o of m.outputs.values()) midiOutputs.push(o);
+    });
+  }
 </script>
 </body>
 </html>
