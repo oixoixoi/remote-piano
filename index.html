@@ -3,35 +3,28 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Remote Piano</title>
+  <title>Remote Piano - Bi-Directional MIDI</title>
   <style>
-    body { background:#0a0a0a; color:#fff; display:flex; flex-direction:column; height:100vh; margin:0; overflow:hidden; font-family:'Inter', -apple-system, BlinkMacSystemFont, sans-serif; touch-action:none; user-select:none; -webkit-user-select:none; }
-    header { padding:15px 25px; display:flex; flex-direction:column; gap:12px; background:rgba(26,26,26,0.8); backdrop-filter:blur(12px); border-bottom:1px solid #333; z-index:10; }
+    body { background:#0a0a0a; color:#fff; display:flex; flex-direction:column; height:100vh; margin:0; overflow:hidden; font-family:'Inter', sans-serif; touch-action:none; user-select:none; }
+    header { padding:15px 25px; display:flex; flex-direction:column; gap:12px; background:rgba(26,26,26,0.9); backdrop-filter:blur(12px); border-bottom:1px solid #333; z-index:10; }
     .header-top { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:15px; }
     .logo { font-size:20px; font-weight:800; color:#0f8; letter-spacing:1px; text-transform:uppercase; display:flex; align-items:center; gap:8px; }
     .auth-container { display:flex; flex-direction:column; gap:12px; align-items:flex-end; }
     .control-group { display:flex; gap:8px; align-items:center; }
-    input { padding:10px 14px; background:#1a1a1a; border:1px solid #333; color:#fff; border-radius:10px; font-size:13px; outline:none; transition:0.3s; width:120px; font-weight:500; }
-    input:focus { border-color:#0f8; background:#222; box-shadow:0 0 0 2px rgba(0,255,136,0.1); }
-    input[readonly] { color:#0f8; font-weight:700; cursor:not-allowed; border-style:dashed; opacity:0.8; } 
-    button { padding:10px 18px; border:none; border-radius:10px; font-weight:700; font-size:12px; cursor:pointer; transition:all 0.2s; display:flex; align-items:center; gap:6px; text-transform:uppercase; }
+    input { padding:10px 14px; background:#1a1a1a; border:1px solid #333; color:#fff; border-radius:10px; font-size:13px; outline:none; width:120px; }
+    button { padding:10px 18px; border:none; border-radius:10px; font-weight:700; font-size:12px; cursor:pointer; text-transform:uppercase; transition:0.2s; }
     .btn-create { background:#0f8; color:#000; } 
-    .btn-join { background:#2563eb; color:#fff; } 
     .btn-leave { background:#222; color:#ff4444; border:1px solid #333; }
     .btn-mute { background:#222; color:#888; border:1px solid #333; min-width:130px; justify-content:center; }
-    .btn-mute.active { background:rgba(0, 255, 136, 0.08); color:#0f8; border-color:rgba(0,255,136,0.3); }
-    .lobby-area { display:flex; gap:10px; align-items:center; justify-content: flex-end; width: 100%; margin-top:-2px; }
-    .lobby-label { color:#444; font-size:10px; font-weight:800; text-transform:uppercase; }
+    .btn-mute.active { color:#0f8; border-color:rgba(0,255,136,0.4); }
     #active-rooms { display:flex; gap:6px; flex-wrap:wrap; justify-content: flex-end; }
-    .room-tag { padding:4px 10px; background:#161616; border:1px solid #262626; border-radius:6px; cursor:pointer; font-size:11px; color:#888; font-weight:600; }
-    .status-wrap { display:flex; align-items:center; gap:10px; background:rgba(0,0,0,0.3); padding:6px 14px; border-radius:10px; border:1px solid #222; }
-    #net-ping { font-size:12px; font-weight:900; font-family: 'JetBrains Mono', monospace; }
+    .room-tag { padding:4px 10px; background:#161616; border:1px solid #262626; border-radius:6px; cursor:pointer; font-size:11px; color:#888; }
     #users { padding:15px; display:flex; gap:10px; flex-wrap:wrap; justify-content:center; min-height:45px; }
     .u-card { background:#161616; padding:8px 16px; border-radius:20px; display:flex; align-items:center; gap:8px; border:1px solid #262626; font-size:13px; font-weight:700; color:#eee; }
-    .u-dot { width:7px; height:7px; background:#333; border-radius:50%; transition:all 0.1s; }
+    .u-dot { width:7px; height:7px; background:#444; border-radius:50%; transition:0.1s; }
     .u-dot.act { background:#0f8; box-shadow:0 0 10px #0f8; transform:scale(1.4); }
-    #piano { flex:1; display:flex; align-items:flex-start; padding-top:20px; justify-content:center; position:relative; overflow-x:auto; background:#0a0a0a; }
-    .k { position:relative; border-radius:0 0 6px 6px; cursor:pointer; transition:background 0.05s; }
+    #piano { flex:1; display:flex; align-items:flex-start; padding-top:20px; justify-content:center; position:relative; overflow-x:auto; }
+    .k { position:relative; border-radius:0 0 6px 6px; cursor:pointer; }
     .w { width:38px; height:220px; background:#fff; border:1px solid #ddd; z-index:1; margin-right:-1px; }
     .w.on { background:#ffcc00 !important; }
     .b { width:24px; height:135px; background:#1a1a1a; margin:0 -12px 85px -12px; z-index:2; border:1px solid #000; }
@@ -45,20 +38,15 @@
     <div class="logo"><span>🎹</span> SESSION PIANO</div>
     <div class="auth-container" id="login-form">
       <div class="control-group">
-        <input id="rn" placeholder="Room Name" autocomplete="off">
+        <input id="rn" placeholder="Room Name">
         <input id="pw" type="password" placeholder="Pass" maxlength="4">
-        <input id="nm" placeholder="Name" autocomplete="off">
+        <input id="nm" placeholder="Name">
         <button class="btn-create" id="btn-action" onclick="createRoom()">CREATE</button>
-        <button id="btn-cancel" class="btn-leave" style="display:none;" onclick="resetLobbyMode()">CANCEL</button>
       </div>
-      <div class="lobby-area" id="lobby-wrap">
-        <span class="lobby-label">Active:</span>
-        <div id="active-rooms"></div>
-      </div>
+      <div id="active-rooms"></div>
     </div>
     <div class="control-group" id="connected-ui" style="display:none;">
-      <div id="room-name-display" style="font-weight:900; color:#0f8; font-size:14px;"></div>
-      <div class="status-wrap"><div id="net-ping">-- MS</div></div>
+      <div id="room-name-display" style="font-weight:900; color:#0f8; margin-right:10px;"></div>
       <button id="mute-btn" class="btn-mute active" onclick="toggleMute()"><span id="mute-text">SOUND ON</span></button>
       <button class="btn-leave" onclick="location.reload()">EXIT</button>
     </div>
@@ -74,18 +62,37 @@
   const socket = io();
   const activeVoices = {}; 
   let isMuted = false;
-  let isSustainOn = false;
-  let sustainedNotes = new Set();
+  let midiOutputs = []; // 미디 출력 장치 목록
 
-  const unlockEvents = ['mousedown', 'touchstart', 'keydown'];
-  function autoUnlock() { if (audio.state === 'suspended') audio.resume(); }
-  unlockEvents.forEach(ev => window.addEventListener(ev, autoUnlock, { once: true }));
+  // 1. 미디 엔진 (입출력 모두 감지)
+  function initMIDI() {
+    if(navigator.requestMIDIAccess) {
+      navigator.requestMIDIAccess({ sysex: true }).then(m => {
+        // 입력 설정
+        for(let input of m.inputs.values()) {
+          input.onmidimessage = e => tx(e.data[0], e.data[1], e.data[2]);
+        }
+        // 출력 설정 (상대방 신호를 내보낼 곳)
+        midiOutputs = Array.from(m.outputs.values());
+        console.log("MIDI Outputs Ready:", midiOutputs.map(o => o.name));
 
-  function toggleMute() {
-    isMuted = !isMuted;
-    document.getElementById('mute-text').innerText = isMuted ? "SOUND OFF" : "SOUND ON";
-    document.getElementById('mute-btn').classList.toggle('active', !isMuted);
-    if (isMuted) Object.keys(activeVoices).forEach(n => stopSoundOnly(n));
+        m.onstatechange = (e) => {
+          if(e.port.state === 'connected' && e.port.type === 'output') {
+            midiOutputs = Array.from(m.outputs.values());
+          }
+        };
+      });
+    }
+  }
+
+  // 2. 상대방 신호를 내 로직(IAC Driver)으로 쏴주는 함수
+  function sendToMidiOut(msg) {
+    midiOutputs.forEach(output => {
+      // IAC 드라이버나 가상 미디 포트에만 신호를 보냄 (무한 루프 방지)
+      if(output.name.includes("IAC") || output.name.includes("Bus")) {
+        output.send(msg);
+      }
+    });
   }
 
   function play(n, v, remoteId = null) {
@@ -93,16 +100,20 @@
     const dot = document.getElementById('d-' + (remoteId || socket.id));
     if (dot) dot.classList.add('act');
 
+    // 상대방이 연주한 경우 내 미디 출력 장치로 신호 전송 (로직 악기 울림)
+    if(remoteId) {
+      sendToMidiOut([0x90, n, v]);
+    }
+
     if(isMuted && !remoteId) { activeVoices[n] = { isDummy: true }; return; }
     if(audio.state === 'suspended') audio.resume();
 
-    const now = audio.currentTime;
     const freq = 440 * Math.pow(2, (n-69)/12);
     const b = audio.createOscillator();
     const g = audio.createGain();
     b.type = 'triangle'; b.frequency.value = freq;
-    g.gain.setValueAtTime((v/127)*0.3, now);
-    g.gain.exponentialRampToValueAtTime(0.01, now + 2);
+    g.gain.setValueAtTime((v/127)*0.3, audio.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.01, audio.currentTime + 2);
     b.connect(g); g.connect(audio.destination);
     b.start();
     activeVoices[n] = { b, g };
@@ -113,22 +124,24 @@
     const dot = document.getElementById('d-' + (remoteId || socket.id));
     if (dot) dot.classList.remove('act');
 
+    if(remoteId) {
+      sendToMidiOut([0x80, n, 0]);
+    }
+
     const v = activeVoices[n];
     if(v && !v.isDummy) {
-      const now = audio.currentTime;
-      v.g.gain.cancelScheduledValues(now);
-      v.g.gain.linearRampToValueAtTime(0, now + 0.1);
-      setTimeout(() => { v.b.stop(); v.g.disconnect(); }, 150);
+      v.g.gain.linearRampToValueAtTime(0, audio.currentTime + 0.1);
+      setTimeout(() => { if(v.b) v.b.stop(); v.g.disconnect(); }, 150);
     }
     delete activeVoices[n];
   }
 
   function tx(s, n, v) {
-    if(s === 144 && v > 0) play(n, v); else stop(n);
+    if((s & 0xF0) === 0x90 && v > 0) play(n, v); else stop(n);
     if (window.currentRoom) socket.emit('midi-msg', { roomName: window.currentRoom, msg: [s, n, v] });
   }
 
-  // 건반 생성
+  // 건반 생성 및 이벤트는 이전과 동일
   const pEl = document.getElementById('piano');
   for(let i=21; i<=108; i++) {
     const isB = [1,3,6,8,10].includes(i%12);
@@ -137,12 +150,37 @@
     pEl.appendChild(d);
   }
 
-  // 마우스 클릭
   let amk = null;
-  pEl.addEventListener('mousedown', e => { const k = e.target.closest('.k'); if(k){ amk = parseInt(k.id.replace('k','')); tx(144, amk, 100); }});
-  window.addEventListener('mouseup', () => { if(amk){ tx(128, amk, 0); amk = null; }});
+  pEl.addEventListener('mousedown', e => { const k = e.target.closest('.k'); if(k){ amk = parseInt(k.id.replace('k','')); tx(0x90, amk, 100); }});
+  window.addEventListener('mouseup', () => { if(amk){ tx(0x80, amk, 0); amk = null; }});
 
-  // 유저 목록 업데이트 로직 강화
+  function createRoom() {
+    const r = document.getElementById('rn').value, n = document.getElementById('nm').value, p = document.getElementById('pw').value;
+    if(!r || !n) return alert("Room and Name required!");
+    window.currentRoom = r;
+    socket.emit('create-room', { roomName: r, userName: n, password: p });
+    initMIDI();
+  }
+
+  function toggleMute() {
+    isMuted = !isMuted;
+    document.getElementById('mute-text').innerText = isMuted ? "SOUND OFF" : "SOUND ON";
+    document.getElementById('mute-btn').classList.toggle('active', !isMuted);
+  }
+
+  socket.on('join-success', d => {
+    document.getElementById('login-form').style.display = 'none';
+    document.getElementById('connected-ui').style.display = 'flex';
+    document.getElementById('room-name-display').innerText = d.roomName;
+    upd(d.users);
+  });
+
+  socket.on('update-users', us => upd(us));
+  socket.on('remote-midi', d => {
+    const [s, n, v] = d.msg;
+    if((s & 0xF0) === 0x90 && v > 0) play(n, v, d.id); else stop(n, d.id);
+  });
+
   function upd(us) {
     const container = document.getElementById('users');
     container.innerHTML = '';
@@ -159,62 +197,12 @@
     c.innerHTML = '';
     rs.forEach(r => {
       const b = document.createElement('div'); b.className = 'room-tag'; b.innerText = r;
-      b.onclick = () => { document.getElementById('rn').value = r; selectRoom(r); };
+      b.onclick = () => { document.getElementById('rn').value = r; createRoom(); };
       c.appendChild(b);
     });
   });
 
-  function createRoom() {
-    const r = document.getElementById('rn').value, p = document.getElementById('pw').value, n = document.getElementById('nm').value;
-    if(!r || !n) return alert("Fill Name/Room!");
-    window.currentRoom = r;
-    socket.emit('create-room', { roomName: r, userName: n, password: p });
-  }
-
-  function joinRoom() {
-    const r = document.getElementById('rn').value, p = document.getElementById('pw').value, n = document.getElementById('nm').value;
-    window.currentRoom = r;
-    socket.emit('join-room', { roomName: r, userName: n, password: p });
-  }
-
-  function selectRoom(r) {
-    document.getElementById('rn').readOnly = true;
-    document.getElementById('btn-action').innerText = "JOIN";
-    document.getElementById('btn-action').onclick = joinRoom;
-    document.getElementById('btn-cancel').style.display = 'block';
-  }
-
-  function resetLobbyMode() {
-    document.getElementById('rn').readOnly = false;
-    document.getElementById('btn-action').innerText = "CREATE";
-    document.getElementById('btn-action').onclick = createRoom;
-    document.getElementById('btn-cancel').style.display = 'none';
-  }
-
-  socket.on('join-success', d => {
-    document.getElementById('login-form').style.display = 'none';
-    document.getElementById('connected-ui').style.display = 'flex';
-    document.getElementById('room-name-display').innerText = d.roomName;
-    upd(d.users);
-  });
-
-  // 유저 입장/퇴장 시 목록 즉시 갱신
-  socket.on('user-joined', u => socket.emit('get-users', window.currentRoom));
-  socket.on('update-users', us => upd(us));
-
-  socket.on('remote-midi', d => {
-    const [s, n, v] = d.msg;
-    if(s === 144 && v > 0) play(n, v, d.id); else stop(n, d.id);
-  });
-
-  socket.on('ping-res', t => { document.getElementById('net-ping').innerText = (Date.now()-t) + " MS"; });
   setInterval(() => { if(window.currentRoom) socket.emit('ping-req', Date.now()); }, 2000);
-
-  if(navigator.requestMIDIAccess) {
-    navigator.requestMIDIAccess().then(m => {
-      for(let i of m.inputs.values()) i.onmidimessage = e => tx(e.data[0], e.data[1], e.data[2]);
-    });
-  }
 </script>
 </body>
 </html>
