@@ -1,6 +1,6 @@
 /**
- * Remote Piano Server v1.0.6
- * 변경점: 방 목록 실시간 브로드캐스팅 및 비번 보안 로직
+ * Remote Piano Server v1.0.7
+ * 변경점: 로컬 사운드 온오프 기능 지원을 위한 버전 업데이트
  */
 const express = require('express');
 const app = express();
@@ -13,7 +13,6 @@ app.get('/', (req, res) => { res.sendFile(__dirname + '/index.html'); });
 
 const rooms = {};
 
-// 현재 공개 가능한 방 목록(비번 제외) 생성 함수
 function getRoomList() {
     return Object.keys(rooms).map(name => ({
         name,
@@ -22,11 +21,9 @@ function getRoomList() {
 }
 
 io.on('connection', (socket) => {
-    // 접속하자마자 방 목록 전송
     socket.emit('room-list', getRoomList());
 
     socket.on('join-room', ({ roomName, userName, password }) => {
-        // 방이 없으면 생성, 있으면 비번 확인
         if (!rooms[roomName]) {
             rooms[roomName] = { password, users: [] };
         } else {
@@ -34,14 +31,12 @@ io.on('connection', (socket) => {
                 return socket.emit('error-msg', '비밀번호가 일치하지 않습니다.');
             }
         }
-
         socket.join(roomName);
         const user = { id: socket.id, name: userName };
         rooms[roomName].users.push(user);
-        
         socket.emit('join-success', { roomName, users: rooms[roomName].users });
         io.to(roomName).emit('update-users', rooms[roomName].users);
-        io.emit('room-list', getRoomList()); // 방 목록 갱신
+        io.emit('room-list', getRoomList());
     });
 
     socket.on('midi-msg', (data) => {
@@ -66,4 +61,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => { console.log(`🚀 v1.0.6 서버 실행 중`); });
+server.listen(PORT, () => { console.log(`🚀 v1.0.7 서버 실행 중`); });
