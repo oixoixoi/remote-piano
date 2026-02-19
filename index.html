@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Remote Piano v1.0.4</title>
+  <title>Remote Piano v1.0.5</title>
   <style>
     body { background:#0a0a0a; color:#fff; margin:0; font-family:sans-serif; height:100vh; display:flex; flex-direction:column; overflow:hidden; }
     header { padding:12px 25px; display:flex; justify-content:space-between; align-items:center; background:#1a1a1a; border-bottom:1px solid #333; }
@@ -17,16 +17,16 @@
     .u-dot { width:8px; height:8px; background:#444; border-radius:50%; }
     .u-dot.act { background:#0f8; box-shadow:0 0 8px #0f8; }
     #piano-wrap { flex:1; display:flex; justify-content:center; align-items:flex-start; padding-top:50px; background:#050505; overflow-x:auto; }
-    .k { position:relative; cursor:pointer; border-radius:0 0 5px 5px; }
+    .k { position:relative; cursor:pointer; border-radius:0 0 5px 5px; box-shadow: 0 4px 8px rgba(0,0,0,0.6); }
     .w { width:40px; height:240px; background:linear-gradient(to bottom, #eee, #fff 90%, #ccc); border:1px solid #999; z-index:1; margin-right:-1px; }
-    .w.on { background:linear-gradient(to bottom, #ffcc00, #ff9900) !important; }
+    .w.on { background:linear-gradient(to bottom, #ffcc00, #ff9900) !important; transform:translateY(2px); box-shadow:none; }
     .b { width:26px; height:140px; background:linear-gradient(to bottom, #333, #000); margin:0 -13px 100px -13px; z-index:2; border:1px solid #000; }
-    .b.on { background:linear-gradient(to bottom, #ccaa00, #886600) !important; }
+    .b.on { background:linear-gradient(to bottom, #ccaa00, #886600) !important; transform:translateY(2px); }
   </style>
 </head>
 <body>
 <header>
-  <div class="logo"><span>🎹 SESSION</span><span class="version-tag">v1.0.4</span></div>
+  <div class="logo"><span>🎹 SESSION</span><span class="version-tag">v1.0.5</span></div>
   <div class="auth" id="login-form">
     <input id="rn" placeholder="Room"> <input id="pw" type="password" placeholder="Pass"> <input id="nm" placeholder="Name">
     <button onclick="join()">JOIN</button>
@@ -47,7 +47,6 @@
   let midiOuts = [];
   let currentRoomName = "";
   
-  // --- 페달 변수 ---
   let isSustainOn = false;
   let sustainedNotes = new Set();
 
@@ -69,11 +68,10 @@
     socket.emit('join-room', { roomName: r, userName: n, password: p });
   }
 
-  // 페달 핸들러
   function handleSustain(v) {
     isSustainOn = v >= 64;
     if (!isSustainOn) {
-      sustainedNotes.forEach(n => stop(n, true));
+      sustainedNotes.forEach(n => stopSound(n));
       sustainedNotes.clear();
     }
   }
@@ -81,34 +79,48 @@
   function tx(s, n, v) {
     if (s === 176 && n === 64) handleSustain(v);
     else if (s === 144 && v > 0) play(n, v);
-    else stop(n);
+    else stopKey(n);
     if(currentRoomName) socket.emit('midi-msg', { roomName: currentRoomName, msg: [s, n, v] });
   }
 
   function play(n, v, remoteId = null) {
     if(audio.state === 'suspended') audio.resume();
+    
+    // 건반 시각화 ON
     document.getElementById('k'+n)?.classList.add('on');
+    
+    // 점등 효과
     const dot = document.getElementById('d-' + (remoteId || socket.id));
     if(dot) { dot.classList.add('act'); setTimeout(()=>dot.classList.remove('act'), 100); }
-    if(voices[n]) stop(n, true);
+
+    // 기존 소리 정지
+    if(voices[n]) stopSound(n);
+
+    // 오디오 생성
     const o = audio.createOscillator();
     const g = audio.createGain();
     o.type = 'triangle';
     o.frequency.value = 440 * Math.pow(2, (n-69)/12);
     g.gain.setValueAtTime((v/127)*0.3, audio.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.01, audio.currentTime + 3); // 서스테인을 위해 좀 더 길게
+    g.gain.exponentialRampToValueAtTime(0.01, audio.currentTime + 3);
     o.connect(g); g.connect(audio.destination);
     o.start();
     voices[n] = { o, g };
     sustainedNotes.delete(n);
   }
 
-  function stop(n, force = false) {
-    if (isSustainOn && !force) {
-      sustainedNotes.add(n);
-      return;
+  // [중요] v1.0.5 핵심: 건반만 끄는 함수
+  function stopKey(n) {
+    document.getElementById('k'+n)?.classList.remove('on'); // 페달 상관없이 불은 즉시 꺼짐
+    if (isSustainOn) {
+      sustainedNotes.add(n); // 페달 중이면 소리 유지 리스트에 추가
+    } else {
+      stopSound(n); // 페달 아니면 소리도 즉시 정지
     }
-    document.getElementById('k'+n)?.classList.remove('on');
+  }
+
+  // 실제 소리를 끄는 함수
+  function stopSound(n) {
     if(voices[n]) {
       const { o, g } = voices[n];
       g.gain.linearRampToValueAtTime(0, audio.currentTime + 0.15);
@@ -125,15 +137,18 @@
   });
   socket.on('update-users', us => upd(us));
   socket.on('error-msg', m => alert(m));
+  
   socket.on('remote-midi', d => {
     const [s, n, v] = d.msg;
     if (s === 176 && n === 64) handleSustain(v);
     else if (s === 144 && v > 0) play(n, v, d.id);
-    else stop(n);
+    else stopKey(n); // 원격 유저가 뗄 때도 건반 불은 즉시 꺼지게
     midiOuts.forEach(out => out.send([s, n, v]));
   });
+
   socket.on('ping-res', t => { document.getElementById('ping-display').innerText = (Date.now()-t)+"ms"; });
   setInterval(() => { if(currentRoomName) socket.emit('ping-req', Date.now()); }, 2000);
+  
   function upd(us) {
     const c = document.getElementById('users'); c.innerHTML = '';
     us.forEach(u => {
@@ -142,6 +157,7 @@
       c.appendChild(d);
     });
   }
+  
   if(navigator.requestMIDIAccess) {
     navigator.requestMIDIAccess().then(m => {
       for(let i of m.inputs.values()) i.onmidimessage = e => tx(e.data[0], e.data[1], e.data[2]);
