@@ -1,6 +1,6 @@
 /**
- * Remote Piano Server v1.0.2
- * 변경점: 유저 입장 시 방 인원 전체 명단 동기화 로직 강화
+ * Remote Piano Server v1.0.3
+ * 변경점: 서버 실행 로그 버전 표기 강화
  */
 const express = require('express');
 const app = express();
@@ -14,22 +14,16 @@ app.get('/', (req, res) => { res.sendFile(__dirname + '/index.html'); });
 const rooms = {};
 
 io.on('connection', (socket) => {
-    console.log(`📡 유저 접속: ${socket.id}`);
-
     socket.on('join-room', ({ roomName, userName, password }) => {
         if (!rooms[roomName]) {
             rooms[roomName] = { password, users: [] };
         }
-        
         if (rooms[roomName].password !== password) {
             return socket.emit('error-msg', '비밀번호가 틀렸습니다.');
         }
-
         socket.join(roomName);
         const user = { id: socket.id, name: userName };
         rooms[roomName].users.push(user);
-        
-        // 본인에게 성공 알림 및 방 전체 인원 명단 업데이트 전송
         socket.emit('join-success', { roomName, users: rooms[roomName].users });
         io.to(roomName).emit('update-users', rooms[roomName].users);
     });
@@ -55,4 +49,10 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => { console.log(`🚀 서버 가동 중 (v1.0.2) : ${PORT}`); });
+server.listen(PORT, () => { 
+    console.log(`\n-----------------------------------`);
+    console.log(`🚀 Remote Piano Server Running!`);
+    console.log(`📌 Version: v1.0.3`);
+    console.log(`🌐 Port: ${PORT}`);
+    console.log(`-----------------------------------\n`);
+});
