@@ -1,6 +1,6 @@
 /**
- * Remote Piano Server v1.0.3
- * 변경점: 서버 실행 로그 버전 표기 강화
+ * Remote Piano Server v1.0.4
+ * 변경점: 서스테인 페달(MIDI CC 64) 호환성 업데이트
  */
 const express = require('express');
 const app = express();
@@ -15,12 +15,8 @@ const rooms = {};
 
 io.on('connection', (socket) => {
     socket.on('join-room', ({ roomName, userName, password }) => {
-        if (!rooms[roomName]) {
-            rooms[roomName] = { password, users: [] };
-        }
-        if (rooms[roomName].password !== password) {
-            return socket.emit('error-msg', '비밀번호가 틀렸습니다.');
-        }
+        if (!rooms[roomName]) rooms[roomName] = { password, users: [] };
+        if (rooms[roomName].password !== password) return socket.emit('error-msg', '비밀번호가 틀렸습니다.');
         socket.join(roomName);
         const user = { id: socket.id, name: userName };
         rooms[roomName].users.push(user);
@@ -50,9 +46,5 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => { 
-    console.log(`\n-----------------------------------`);
-    console.log(`🚀 Remote Piano Server Running!`);
-    console.log(`📌 Version: v1.0.3`);
-    console.log(`🌐 Port: ${PORT}`);
-    console.log(`-----------------------------------\n`);
+    console.log(`🚀 Remote Piano Server v1.0.4 가동 중`);
 });
