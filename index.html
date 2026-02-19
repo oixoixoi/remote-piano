@@ -2,31 +2,22 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Remote Piano v1.0.3</title>
+  <title>Remote Piano v1.0.4</title>
   <style>
     body { background:#0a0a0a; color:#fff; margin:0; font-family:sans-serif; height:100vh; display:flex; flex-direction:column; overflow:hidden; }
     header { padding:12px 25px; display:flex; justify-content:space-between; align-items:center; background:#1a1a1a; border-bottom:1px solid #333; }
-    /* 로고 옆 버전 스타일 */
     .logo { font-size:20px; font-weight:900; color:#0f8; display:flex; align-items:center; gap:8px; }
     .version-tag { font-size:10px; background:#333; color:#aaa; padding:2px 6px; border-radius:10px; font-weight:normal; }
-    
     .auth { display:flex; gap:8px; }
     input { padding:8px; background:#222; border:1px solid #444; color:#fff; border-radius:4px; width:100px; }
     button { padding:8px 15px; border:none; border-radius:4px; font-weight:bold; cursor:pointer; background:#0f8; color:#000; }
-
     #connected-ui { display:none; align-items:center; gap:20px; }
-    .status-text { text-align:right; line-height:1.2; }
-    #room-name-display { color:#0f8; font-weight:bold; font-size:14px; }
-    #ping-display { color:#888; font-size:12px; font-family:monospace; }
-    .btn-exit { background:#ff4444; color:#fff; }
-
     #users { padding:15px; display:flex; gap:10px; justify-content:center; min-height:40px; }
     .u-card { background:#222; padding:8px 15px; border-radius:20px; border:1px solid #333; display:flex; align-items:center; gap:8px; font-size:14px; }
-    .u-dot { width:8px; height:8px; background:#444; border-radius:50%; transition:0.1s; }
-    .u-dot.act { background:#0f8; box-shadow:0 0 8px #0f8; transform:scale(1.2); }
-
+    .u-dot { width:8px; height:8px; background:#444; border-radius:50%; }
+    .u-dot.act { background:#0f8; box-shadow:0 0 8px #0f8; }
     #piano-wrap { flex:1; display:flex; justify-content:center; align-items:flex-start; padding-top:50px; background:#050505; overflow-x:auto; }
-    .k { position:relative; cursor:pointer; border-radius:0 0 5px 5px; box-shadow: 0 5px 10px rgba(0,0,0,0.5); }
+    .k { position:relative; cursor:pointer; border-radius:0 0 5px 5px; }
     .w { width:40px; height:240px; background:linear-gradient(to bottom, #eee, #fff 90%, #ccc); border:1px solid #999; z-index:1; margin-right:-1px; }
     .w.on { background:linear-gradient(to bottom, #ffcc00, #ff9900) !important; }
     .b { width:26px; height:140px; background:linear-gradient(to bottom, #333, #000); margin:0 -13px 100px -13px; z-index:2; border:1px solid #000; }
@@ -34,29 +25,17 @@
   </style>
 </head>
 <body>
-
 <header>
-  <div class="logo">
-    <span>🎹 SESSION</span>
-    <span class="version-tag">v1.0.3</span>
-  </div>
-  
+  <div class="logo"><span>🎹 SESSION</span><span class="version-tag">v1.0.4</span></div>
   <div class="auth" id="login-form">
-    <input id="rn" placeholder="Room">
-    <input id="pw" type="password" placeholder="Pass">
-    <input id="nm" placeholder="Name">
+    <input id="rn" placeholder="Room"> <input id="pw" type="password" placeholder="Pass"> <input id="nm" placeholder="Name">
     <button onclick="join()">JOIN</button>
   </div>
-
   <div id="connected-ui">
-    <div class="status-text">
-      <div id="room-name-display"></div>
-      <div id="ping-display">지연시간: --ms</div>
-    </div>
-    <button class="btn-exit" onclick="location.reload()">EXIT</button>
+    <div style="text-align:right;"><div id="room-name-display" style="color:#0f8; font-weight:bold;"></div><div id="ping-display" style="color:#888; font-size:12px;">--ms</div></div>
+    <button style="background:#ff4444; color:#fff;" onclick="location.reload()">EXIT</button>
   </div>
 </header>
-
 <div id="users"></div>
 <div id="piano-wrap"><div id="piano" style="display:flex;"></div></div>
 
@@ -67,6 +46,10 @@
   const voices = {};
   let midiOuts = [];
   let currentRoomName = "";
+  
+  // --- 페달 변수 ---
+  let isSustainOn = false;
+  let sustainedNotes = new Set();
 
   const p = document.getElementById('piano');
   for(let i=21; i<=108; i++) {
@@ -81,13 +64,24 @@
   function join() {
     if(audio.state === 'suspended') audio.resume();
     const r = document.getElementById('rn').value, p = document.getElementById('pw').value, n = document.getElementById('nm').value;
-    if(!r || !p || !n) return alert("빈칸을 입력하세요!");
+    if(!r || !p || !n) return alert("입력 확인!");
     currentRoomName = r;
     socket.emit('join-room', { roomName: r, userName: n, password: p });
   }
 
+  // 페달 핸들러
+  function handleSustain(v) {
+    isSustainOn = v >= 64;
+    if (!isSustainOn) {
+      sustainedNotes.forEach(n => stop(n, true));
+      sustainedNotes.clear();
+    }
+  }
+
   function tx(s, n, v) {
-    if(s === 144 && v > 0) play(n, v); else stop(n);
+    if (s === 176 && n === 64) handleSustain(v);
+    else if (s === 144 && v > 0) play(n, v);
+    else stop(n);
     if(currentRoomName) socket.emit('midi-msg', { roomName: currentRoomName, msg: [s, n, v] });
   }
 
@@ -96,25 +90,29 @@
     document.getElementById('k'+n)?.classList.add('on');
     const dot = document.getElementById('d-' + (remoteId || socket.id));
     if(dot) { dot.classList.add('act'); setTimeout(()=>dot.classList.remove('act'), 100); }
-
-    if(voices[n]) stop(n);
+    if(voices[n]) stop(n, true);
     const o = audio.createOscillator();
     const g = audio.createGain();
     o.type = 'triangle';
     o.frequency.value = 440 * Math.pow(2, (n-69)/12);
     g.gain.setValueAtTime((v/127)*0.3, audio.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.01, audio.currentTime + 2);
+    g.gain.exponentialRampToValueAtTime(0.01, audio.currentTime + 3); // 서스테인을 위해 좀 더 길게
     o.connect(g); g.connect(audio.destination);
     o.start();
     voices[n] = { o, g };
+    sustainedNotes.delete(n);
   }
 
-  function stop(n) {
+  function stop(n, force = false) {
+    if (isSustainOn && !force) {
+      sustainedNotes.add(n);
+      return;
+    }
     document.getElementById('k'+n)?.classList.remove('on');
     if(voices[n]) {
-      voices[n].g.gain.linearRampToValueAtTime(0, audio.currentTime + 0.1);
-      const targetOsc = voices[n].o;
-      setTimeout(() => { try { targetOsc.stop(); targetOsc.disconnect(); } catch(e){} }, 150);
+      const { o, g } = voices[n];
+      g.gain.linearRampToValueAtTime(0, audio.currentTime + 0.15);
+      setTimeout(() => { try { o.stop(); o.disconnect(); } catch(e){} }, 200);
       delete voices[n];
     }
   }
@@ -122,23 +120,20 @@
   socket.on('join-success', d => {
     document.getElementById('login-form').style.display = 'none';
     document.getElementById('connected-ui').style.display = 'flex';
-    document.getElementById('room-name-display').innerText = "방: " + d.roomName;
+    document.getElementById('room-name-display').innerText = d.roomName;
     upd(d.users);
   });
-
   socket.on('update-users', us => upd(us));
   socket.on('error-msg', m => alert(m));
   socket.on('remote-midi', d => {
     const [s, n, v] = d.msg;
-    if(s === 144 && v > 0) play(n, v, d.id); else stop(n);
+    if (s === 176 && n === 64) handleSustain(v);
+    else if (s === 144 && v > 0) play(n, v, d.id);
+    else stop(n);
     midiOuts.forEach(out => out.send([s, n, v]));
   });
-
-  socket.on('ping-res', t => {
-    document.getElementById('ping-display').innerText = `지연시간: ${Date.now() - t}ms`;
-  });
+  socket.on('ping-res', t => { document.getElementById('ping-display').innerText = (Date.now()-t)+"ms"; });
   setInterval(() => { if(currentRoomName) socket.emit('ping-req', Date.now()); }, 2000);
-
   function upd(us) {
     const c = document.getElementById('users'); c.innerHTML = '';
     us.forEach(u => {
@@ -147,7 +142,6 @@
       c.appendChild(d);
     });
   }
-
   if(navigator.requestMIDIAccess) {
     navigator.requestMIDIAccess().then(m => {
       for(let i of m.inputs.values()) i.onmidimessage = e => tx(e.data[0], e.data[1], e.data[2]);
