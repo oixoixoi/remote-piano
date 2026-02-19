@@ -1,6 +1,6 @@
 /**
- * Remote Piano Server v1.1.4
- * 변경점: Note Off 신호 처리 로직 정교화
+ * Remote Piano Server v1.0.9
+ * 변경점: 페달 로직 안정화 및 시각적 피드백 강화
  */
 const express = require('express');
 const app = express();
@@ -14,16 +14,23 @@ app.get('/', (req, res) => { res.sendFile(__dirname + '/index.html'); });
 const rooms = {};
 
 function getRoomList() {
-    return Object.keys(rooms).map(name => ({ name, userCount: rooms[name].users.length }));
+    return Object.keys(rooms).map(name => ({
+        name,
+        userCount: rooms[name].users.length
+    }));
 }
 
 io.on('connection', (socket) => {
     socket.emit('room-list', getRoomList());
 
     socket.on('join-room', ({ roomName, userName, password }) => {
-        if (!rooms[roomName]) rooms[roomName] = { password, users: [] };
-        else if (rooms[roomName].password !== password) return socket.emit('error-msg', '비밀번호가 일치하지 않습니다.');
-
+        if (!rooms[roomName]) {
+            rooms[roomName] = { password, users: [] };
+        } else {
+            if (rooms[roomName].password !== password) {
+                return socket.emit('error-msg', '비밀번호가 일치하지 않습니다.');
+            }
+        }
         socket.join(roomName);
         const user = { id: socket.id, name: userName };
         rooms[roomName].users.push(user);
@@ -54,4 +61,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => { console.log(`🚀 v1.1.4 서버 가동 중`); });
+server.listen(PORT, () => { console.log(`🚀 v1.0.9 서버 실행 중`); });
