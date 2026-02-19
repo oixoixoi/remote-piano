@@ -1,6 +1,6 @@
 /**
- * Remote Piano Server v1.0.4
- * 변경점: 서스테인 페달(MIDI CC 64) 호환성 업데이트
+ * Remote Piano Server v1.0.5
+ * 변경점: 시각적 피드백 개선 (페달 사용 시에도 손 떼면 건반 불 꺼짐)
  */
 const express = require('express');
 const app = express();
@@ -46,5 +46,5 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => { 
-    console.log(`🚀 Remote Piano Server v1.0.4 가동 중`);
+    console.log(`🚀 Remote Piano Server v1.0.5 Running...`);
 });
