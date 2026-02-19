@@ -3,9 +3,7 @@ const app = express();
 const http = require('http');
 const server = http.createServer(app);
 const { Server } = require("socket.io");
-const io = new Server(server, {
-  cors: { origin: "*" } // 외부 접속 허용
-});
+const io = new Server(server, { cors: { origin: "*" } });
 
 app.get('/', (req, res) => { res.sendFile(__dirname + '/index.html'); });
 
@@ -23,12 +21,13 @@ io.on('connection', (socket) => {
     rooms[roomName].users.push(user);
     
     socket.emit('join-success', { roomName, users: rooms[roomName].users });
+    // 새로 들어온 사람에게 기존 사람들과 P2P 연결하라고 알림
     socket.to(roomName).emit('user-joined', user);
   });
 
-  socket.on('midi-msg', (data) => {
-    socket.to(data.roomName).emit('remote-midi', { id: socket.id, msg: data.msg });
-    io.to(data.roomName).emit('user-activity', { id: socket.id });
+  // WebRTC P2P 연결을 위한 신호(명함) 교환 중계
+  socket.on('webrtc-signal', (data) => {
+    io.to(data.to).emit('webrtc-signal', { from: socket.id, signal: data.signal });
   });
 
   socket.on('disconnect', () => {
@@ -45,8 +44,5 @@ io.on('connection', (socket) => {
   });
 });
 
-// Render에서는 환경변수 PORT를 사용해야 함
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`서버 온! 포트: ${PORT}`);
-});
+server.listen(PORT, () => { console.log(`🚀 초저지연 서버 온! 포트: ${PORT}`); });
