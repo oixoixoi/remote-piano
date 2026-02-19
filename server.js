@@ -1,125 +1,177 @@
-const express = require('express');
-const app = express();
-const http = require('http');
-const server = http.createServer(app);
-const { Server } = require("socket.io");
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Remote Piano Session</title>
+  <style>
+    body { background:#111; color:#fff; display:flex; flex-direction:column; height:100vh; margin:0; overflow:hidden; font-family:sans-serif; touch-action:none; }
+    header { padding:15px 25px; display:flex; justify-content:space-between; align-items:center; background:#1a1a1a; border-bottom:1px solid #333; z-index:10; }
+    .logo { font-size:22px; font-weight:bold; color:#0f8; }
+    .control-group { display:flex; gap:10px; align-items:center; }
+    input { padding:10px 15px; background:#222; border:1px solid #444; color:#fff; border-radius:5px; width:120px; outline:none; }
+    button { padding:10px 20px; border:none; border-radius:5px; font-weight:bold; cursor:pointer; background:#0f8; color:#000; }
+    .btn-leave { background:#ff4444; color:#fff; }
+    .status-wrap { background:rgba(0,0,0,0.5); padding:8px 15px; border-radius:10px; border:1px solid #333; text-align:right; }
+    #net-mode { font-size:12px; font-weight:bold; color:#888; }
+    #net-ping { font-size:14px; font-weight:bold; color:#888; font-family:monospace; }
+    #users { padding:20px; display:flex; gap:20px; flex-wrap:wrap; justify-content:center; min-height:40px; }
+    .u-card { background:#2a2a2a; padding:10px 20px; border-radius:30px; display:flex; align-items:center; gap:10px; border:1px solid #555; font-weight:bold; }
+    .u-dot { width:12px; height:12px; background:#555; border-radius:50%; transition:0.1s; }
+    .u-dot.act { background:#0f8; box-shadow:0 0 10px #0f8; transform:scale(1.3); }
+    #piano { flex:1; display:flex; align-items:flex-start; padding-top:60px; justify-content:center; overflow-x:auto; background:#050505; }
+    .k { position:relative; border-radius:0 0 5px 5px; cursor:pointer; transition:transform 0.05s; }
+    .w { width:38px; height:240px; background:#fff; border:1px solid #ccc; z-index:1; margin-right:-1px; }
+    .w.on { background:#ffe600; box-shadow:0 0 15px rgba(255,230,0,0.5); transform:translateY(2px); }
+    .b { width:24px; height:150px; background:#000; margin:0 -12px 90px -12px; z-index:2; border:1px solid #222; }
+    .b.on { background:#ffe600 !important; transform:translateY(2px); }
+  </style>
+</head>
+<body>
 
-// CORS 설정: 클라우드타입 환경에서 외부 접속을 안정적으로 허용
-const io = new Server(server, { cors: { origin: "*" } });
+<header>
+  <div class="logo">🎹 Remote Session</div>
+  <div class="control-group" id="login-form">
+    <input id="rn" placeholder="방 이름">
+    <input id="pw" type="password" placeholder="비번(4자리)">
+    <input id="nm" placeholder="닉네임">
+    <button onclick="join()">접속</button>
+  </div>
+  <div class="control-group" id="connected-ui" style="display:none;">
+    <div class="status-wrap">
+      <div id="net-mode">대기중</div>
+      <div id="net-ping">-- ms</div>
+    </div>
+    <button class="btn-leave" onclick="location.reload()">나가기</button>
+  </div>
+</header>
 
-app.get('/', (req, res) => { 
-    res.sendFile(__dirname + '/index.html'); 
-});
+<div id="users"></div>
+<div id="piano"></div>
 
-const rooms = {};
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  const audio = new (window.AudioContext||window.webkitAudioContext)();
+  const socket = io();
+  const oscs = {}, gains = {};
+  let midiOutputs = [];
+  const echoBlock = {};
+  const peers = {};
 
-// 전체 유저에게 현재 열려있는 방 목록을 전달하는 함수
-function broadcastRoomList() {
-    io.emit('room-list', Object.keys(rooms));
-}
+  let isDragging = false;
+  document.addEventListener('mousedown', () => isDragging = true);
+  document.addEventListener('mouseup', () => isDragging = false);
 
-io.on('connection', (socket) => {
-    console.log(`📡 유저 접속: ${socket.id}`);
+  function play(n, v) {
+    if(oscs[n]) stop(n);
+    const o = audio.createOscillator();
+    const g = audio.createGain();
+    o.type = 'triangle';
+    o.frequency.value = 440 * Math.pow(2, (n-69)/12);
+    const vol = (v/127) * 0.4;
+    g.gain.setValueAtTime(0, audio.currentTime);
+    g.gain.linearRampToValueAtTime(vol, audio.currentTime + 0.005);
+    g.gain.exponentialRampToValueAtTime(vol * 0.1, audio.currentTime + 1.5);
+    o.connect(g); g.connect(audio.destination);
+    o.start();
+    oscs[n]=o; gains[n]=g;
+    document.getElementById('k'+n)?.classList.add('on');
+  }
 
-    // 처음 접속 시 현재 방 목록 전송
-    socket.emit('room-list', Object.keys(rooms));
+  function stop(n) {
+    if(gains[n]) {
+      gains[n].gain.cancelScheduledValues(audio.currentTime);
+      gains[n].gain.linearRampToValueAtTime(0, audio.currentTime + 0.05);
+    }
+    const o = oscs[n];
+    setTimeout(() => { if(o) { o.stop(); o.disconnect(); } }, 60);
+    delete oscs[n]; delete gains[n];
+    document.getElementById('k'+n)?.classList.remove('on');
+  }
 
-    // 1. 방 만들기
-    socket.on('create-room', ({ roomName, userName, password }) => {
-        if (rooms[roomName]) {
-            socket.emit('error-msg', '이미 존재하는 방 이름입니다.');
-            return;
-        }
-        if (!/^\d{4}$/.test(password)) {
-            socket.emit('error-msg', '비밀번호는 숫자 4자리여야 합니다.');
-            return;
-        }
-        
-        rooms[roomName] = { password, users: [] };
-        socket.join(roomName);
-        
-        const user = { id: socket.id, name: userName };
-        rooms[roomName].users.push(user);
-        
-        // 본인에게 성공 알림
-        socket.emit('join-success', { roomName, users: rooms[roomName].users });
-        
-        // 로비 목록 새로고침
-        broadcastRoomList();
+  function tx(s, n, v) {
+    if(audio.state === 'suspended') audio.resume();
+    if(s === 144 && v > 0) play(n, v); else stop(n);
+    let sentP2P = false;
+    const msg = JSON.stringify([s, n, v]);
+    for (const id in peers) {
+      if (peers[id].dataChannel?.readyState === 'open') {
+        peers[id].dataChannel.send(msg);
+        sentP2P = true;
+      }
+    }
+    if (!sentP2P && window.currentRoom) socket.emit('midi-msg', { roomName: window.currentRoom, msg: [s, n, v] });
+  }
+
+  const pianoEl = document.getElementById('piano');
+  for(let i=21; i<=108; i++) {
+    const isB = [1,3,6,8,10].includes(i%12);
+    const d = document.createElement('div');
+    d.id = 'k'+i; d.className = `k ${isB?'b':'w'}`;
+    d.addEventListener('mousedown', (e) => { e.preventDefault(); tx(144, i, 100); });
+    d.addEventListener('mouseenter', () => { if(isDragging) tx(144, i, 100); });
+    d.addEventListener('mouseleave', () => tx(128, i, 0));
+    d.addEventListener('mouseup', () => tx(128, i, 0));
+    pianoEl.appendChild(d);
+  }
+
+  function join() {
+    const r = document.getElementById('rn').value, pw = document.getElementById('pw').value, n = document.getElementById('nm').value;
+    if(!r || !pw || !n) return alert("빈칸을 채워주세요!");
+    if(audio.state === 'suspended') audio.resume();
+    socket.emit('join-room', { roomName: r, userName: n, password: pw });
+    window.currentRoom = r;
+  }
+
+  socket.on('join-success', d => {
+    document.getElementById('login-form').style.display = 'none';
+    document.getElementById('connected-ui').style.display = 'flex';
+    upd(d.users);
+  });
+
+  socket.on('error-msg', m => alert(m));
+
+  socket.on('update-users', us => upd(us));
+
+  socket.on('remote-midi', d => {
+    const [s, n, v] = d.msg;
+    echoBlock[`${s}-${n}`] = Date.now();
+    if(s === 144 && v > 0) play(n, v); else stop(n);
+    flash(d.id);
+    midiOutputs.forEach(o => { try { o.send([s, n, v]); } catch(e) {} });
+  });
+
+  socket.on('ping-res', t => {
+    const ms = Date.now() - t;
+    document.getElementById('net-ping').innerText = ms + " ms";
+    document.getElementById('net-mode').innerText = ms < 60 ? "통신상태: 좋음 🟢" : "통신상태: 보통 🟡";
+  });
+
+  setInterval(() => { if(window.currentRoom) socket.emit('ping-req', Date.now()); }, 2000);
+
+  function upd(us) {
+    const c = document.getElementById('users'); c.innerHTML = '';
+    us.forEach(u => {
+      const d = document.createElement('div'); d.className = 'u-card'; d.id='u-'+u.id;
+      d.innerHTML=`<span class="u-dot" id="d-${u.id}"></span>${u.name}`;
+      c.appendChild(d);
     });
+  }
 
-    // 2. 방 접속
-    socket.on('join-room', ({ roomName, userName, password }) => {
-        if (!rooms[roomName]) {
-            socket.emit('error-msg', '존재하지 않는 방입니다.');
-            return;
-        }
-        if (rooms[roomName].password !== password) {
-            socket.emit('error-msg', '비밀번호가 틀렸습니다.');
-            return;
-        }
+  function flash(id) {
+    const d = document.getElementById('d-'+id);
+    if(d) { d.classList.add('act'); setTimeout(()=>d.classList.remove('act'), 100); }
+  }
 
-        socket.join(roomName);
-        const user = { id: socket.id, name: userName };
-        rooms[roomName].users.push(user);
-        
-        // 접속한 본인에게 방 정보 전송
-        socket.emit('join-success', { roomName, users: rooms[roomName].users });
-
-        // 중요: 방에 있는 기존 사람들에게 "새 유저가 왔다"고 알림
-        socket.to(roomName).emit('user-joined', user);
-
-        // 핵심: 방 안의 모든 사람에게 "최신 유저 명단"을 강제로 동기화
-        io.to(roomName).emit('update-users', rooms[roomName].users);
+  if(navigator.requestMIDIAccess) {
+    navigator.requestMIDIAccess().then(m => {
+      for(let i of m.inputs.values()) i.onmidimessage = e => {
+        if (echoBlock[`${e.data[0]}-${e.data[1]}`] && Date.now() - echoBlock[`${e.data[0]}-${e.data[1]}`] < 100) return;
+        tx(e.data[0], e.data[1], e.data[2]);
+      };
+      for(let o of m.outputs.values()) midiOutputs.push(o);
     });
-
-    // WebRTC 시그널링 (P2P 연결용)
-    socket.on('webrtc-signal', (data) => {
-        if (data.to) {
-            io.to(data.to).emit('webrtc-signal', { from: socket.id, signal: data.signal });
-        }
-    });
-
-    // 미디 신호 전송
-    socket.on('midi-msg', (data) => {
-        // 보낸 사람을 제외한 방 안의 다른 사람들에게만 신호 전달
-        socket.to(data.roomName).emit('remote-midi', { id: socket.id, msg: data.msg });
-        // 이름 옆 점(Dot) 깜빡임용 액티비티
-        io.to(data.roomName).emit('user-activity', { id: socket.id });
-    });
-
-    // 네트워크 핑 체크
-    socket.on('ping-req', (t) => { 
-        socket.emit('ping-res', t); 
-    });
-
-    // 접속 종료 시 처리
-    socket.on('disconnect', () => {
-        console.log(`❌ 유저 퇴장: ${socket.id}`);
-        for (const roomName in rooms) {
-            const room = rooms[roomName];
-            const idx = room.users.findIndex(u => u.id === socket.id);
-            
-            if (idx !== -1) {
-                const leftUserName = room.users[idx].name;
-                room.users.splice(idx, 1);
-                
-                // 유저가 나갔음을 알리고 명단 새로고침 명령
-                io.to(roomName).emit('user-left', socket.id);
-                io.to(roomName).emit('update-users', room.users);
-
-                // 방에 아무도 없으면 방 삭제
-                if (room.users.length === 0) {
-                    delete rooms[roomName];
-                    broadcastRoomList();
-                }
-                break;
-            }
-        }
-    });
-});
-
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => { 
-    console.log(`🚀 서버 가동 중 | 포트: ${PORT}`); 
-});
+  }
+</script>
+</body>
+</html>
