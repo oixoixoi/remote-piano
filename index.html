@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Remote Piano</title>
+  <title>Remote Piano (Ultra-Low Latency)</title>
   <style>
     body { background:#111; color:#fff; display:flex; flex-direction:column; height:100vh; margin:0; overflow:hidden; font-family:sans-serif; touch-action:none; }
     #login { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); display:flex; justify-content:center; align-items:center; z-index:99; flex-direction:column; }
@@ -13,19 +13,16 @@
     input:focus { border-color:#0f8; }
     button { padding:15px 30px; background:#0f8; border:none; cursor:pointer; font-weight:bold; font-size:16px; border-radius:5px; margin-top:10px; width:100%; transition:0.2s; }
     button:hover { background:#0c6; }
-    
     header { padding:20px; display:flex; justify-content:space-between; align-items:center; background:#1a1a1a; border-bottom:1px solid #333; }
     .status-wrap { display:flex; align-items:center; gap:10px; }
     .status { width:12px; height:12px; border-radius:50%; background:#555; }
     .status.con { background:#f00; animation:blink 0.5s infinite; }
     .status.ok { background:#0f8; box-shadow:0 0 10px #0f8; animation:none; }
     @keyframes blink { 50% { opacity:0.3; } }
-
     #users { padding:15px; display:flex; gap:15px; flex-wrap:wrap; }
     .u-card { background:#2a2a2a; padding:8px 15px; border-radius:20px; display:flex; align-items:center; gap:8px; border:1px solid #444; font-size:14px; }
     .u-dot { width:8px; height:8px; background:#555; border-radius:50%; transition:0.1s; }
     .u-dot.act { background:#0f8; box-shadow:0 0 8px #0f8; transform:scale(1.2); }
-
     #piano { flex:1; display:flex; align-items:flex-end; padding-bottom:30px; justify-content:center; position:relative; overflow-x:auto; background:linear-gradient(to bottom, #111, #000); }
     .k { position:relative; border-radius:0 0 5px 5px; cursor:pointer; transition:background 0.05s; }
     .w { width:32px; height:220px; background:#fff; border:1px solid #ccc; z-index:1; }
@@ -38,11 +35,11 @@
 
 <div id="login">
   <div class="box">
-    <h2>🎹 Remote Jam</h2>
-    <input id="rn" placeholder="방 번호 (예: 101)" autocomplete="off">
-    <input id="pw" type="password" placeholder="비밀번호 (예: 1234)" autocomplete="off">
-    <input id="nm" placeholder="닉네임 (예: 테스터)" autocomplete="off">
-    <button onclick="join()">접속 시작</button>
+    <h2>🎹 P2P Jam (Low Latency)</h2>
+    <input id="rn" placeholder="방 번호" autocomplete="off">
+    <input id="pw" type="password" placeholder="비밀번호" autocomplete="off">
+    <input id="nm" placeholder="닉네임" autocomplete="off">
+    <button onclick="join()">초고속 접속</button>
     <div id="err" style="color:#ff4444; margin-top:15px; font-size:14px;"></div>
   </div>
 </div>
@@ -63,11 +60,12 @@
   const audio = new (window.AudioContext||window.webkitAudioContext)();
   const socket = io();
   const oscs = {}, gains = {};
-  let room;
   let midiOutputs = []; 
-  
-  // 핵심: 루프 방지를 위한 기록장
   const echoBlock = {}; 
+
+  // WebRTC P2P 연결 저장소
+  const peers = {}; 
+  const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }; // 구글 무료 서버 사용
 
   function play(n, v) {
     if(oscs[n]) stop(n);
@@ -93,10 +91,18 @@
     if(k) k.classList.remove('on');
   }
 
+  // 데이터 전송: 서버를 거치지 않고 P2P 데이터 채널로 직접 쏨!
   function tx(s, n, v) {
     if(audio.state === 'suspended') audio.resume();
     if(s===144 && v>0) play(n,v); else stop(n);
-    if(room) socket.emit('midi-msg', { roomName:room, msg:[s,n,v] });
+    
+    const msgStr = JSON.stringify([s, n, v]);
+    for (const peerId in peers) {
+      const channel = peers[peerId].dataChannel;
+      if (channel && channel.readyState === 'open') {
+        channel.send(msgStr);
+      }
+    }
   }
 
   const p = document.getElementById('piano');
@@ -104,61 +110,98 @@
     const isB = [1,3,6,8,10].includes(i%12);
     const d = document.createElement('div');
     d.id = 'k'+i; d.className = `k ${isB?'b':'w'}`;
-    
     const press = (e) => { e.preventDefault(); tx(144, i, 100); };
     const release = (e) => { e.preventDefault(); tx(128, i, 0); };
-
     d.addEventListener('mousedown', press);
     d.addEventListener('touchstart', press, {passive: false});
     d.addEventListener('mouseup', release);
     d.addEventListener('mouseleave', release);
     d.addEventListener('touchend', release);
     d.addEventListener('touchcancel', release);
-
     p.appendChild(d);
   }
 
   function join() {
-    const r = document.getElementById('rn').value;
-    const p = document.getElementById('pw').value;
-    const n = document.getElementById('nm').value;
-    if(!r || !p || !n) return document.getElementById('err').innerText = "빈칸을 모두 채워주세요!";
+    const r = document.getElementById('rn').value, p = document.getElementById('pw').value, n = document.getElementById('nm').value;
+    if(!r || !p || !n) return document.getElementById('err').innerText = "빈칸을 채워주세요!";
     if(audio.state==='suspended') audio.resume();
     document.getElementById('st').className = 'status con';
-    document.getElementById('st-txt').innerText = "CONNECTING...";
+    document.getElementById('st-txt').innerText = "CONNECTING P2P...";
     socket.emit('join-room', { roomName:r, userName:n, password:p });
-    room = r;
   }
 
   socket.on('join-success', d => {
     document.getElementById('login').style.display='none';
     document.getElementById('st').className = 'status ok';
-    document.getElementById('st-txt').innerText = "ONLINE";
-    document.getElementById('st-txt').style.color = "#0f8";
+    document.getElementById('st-txt').innerText = "P2P ONLINE";
     document.getElementById('info').innerText = `ROOM: ${d.roomName}`;
     upd(d.users);
   });
-  
-  socket.on('error-msg', m => { document.getElementById('err').innerText = m; document.getElementById('st').className='status'; document.getElementById('st-txt').innerText = "ERROR"; });
-  socket.on('user-joined', u => addU(u));
-  socket.on('user-left', id => { document.getElementById('u-'+id)?.remove(); });
-  
-  // 원격 신호가 들어올 때
-  socket.on('remote-midi', d => { 
-    const [s,n,v] = d.msg; 
-    
-    // 이 신호는 내가 친 게 아니라 '상대방이 친 거'라고 0.3초 동안 장부에 기록해둠 (루프 방지)
-    echoBlock[`${s}-${n}`] = Date.now();
 
-    if(s===144 && v>0) play(n,v); else stop(n); 
-    flash(d.id); 
-    midiOutputs.forEach(output => { try { output.send([s, n, v]); } catch(e) {} });
+  socket.on('error-msg', m => { document.getElementById('err').innerText = m; document.getElementById('st').className='status'; document.getElementById('st-txt').innerText = "ERROR"; });
+  socket.on('user-left', id => { document.getElementById('u-'+id)?.remove(); if(peers[id]) { peers[id].pc.close(); delete peers[id]; } });
+  
+  // ----------------------------------------------------
+  // WebRTC P2P 핵심 통신 로직
+  // ----------------------------------------------------
+  function setupPeerConnection(peerId, initiate) {
+    const pc = new RTCPeerConnection(rtcConfig);
+    peers[peerId] = { pc: pc, dataChannel: null };
+
+    // ICE 캔디데이트(네트워크 길찾기) 교환
+    pc.onicecandidate = event => {
+      if (event.candidate) socket.emit('webrtc-signal', { to: peerId, signal: { candidate: event.candidate } });
+    };
+
+    // 상대방이 다이렉트로 보낸 미디 신호 받기!
+    const setupDataChannel = (channel) => {
+      peers[peerId].dataChannel = channel;
+      channel.onmessage = event => {
+        const [s, n, v] = JSON.parse(event.data);
+        echoBlock[`${s}-${n}`] = Date.now(); // 루프 방지 장부 기록
+        if(s===144 && v>0) play(n,v); else stop(n);
+        flash(peerId);
+        midiOutputs.forEach(output => { try { output.send([s, n, v]); } catch(e) {} });
+      };
+    };
+
+    if (initiate) {
+      const dc = pc.createDataChannel('midi');
+      setupDataChannel(dc);
+      pc.createOffer().then(offer => pc.setLocalDescription(offer))
+        .then(() => socket.emit('webrtc-signal', { to: peerId, signal: { offer: pc.localDescription } }));
+    } else {
+      pc.ondatachannel = event => setupDataChannel(event.channel);
+    }
+  }
+
+  // 누가 새로 들어오면 내가 먼저 연결 요청 (Offer)
+  socket.on('user-joined', user => {
+    addU(user);
+    setupPeerConnection(user.id, true); 
   });
 
-  socket.on('user-activity', d => flash(d.id));
+  // 연결 신호 핑퐁 처리
+  socket.on('webrtc-signal', async data => {
+    const { from, signal } = data;
+    if (!peers[from]) setupPeerConnection(from, false);
+    const pc = peers[from].pc;
+
+    if (signal.offer) {
+      await pc.setRemoteDescription(new RTCSessionDescription(signal.offer));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      socket.emit('webrtc-signal', { to: from, signal: { answer: pc.localDescription } });
+    } else if (signal.answer) {
+      await pc.setRemoteDescription(new RTCSessionDescription(signal.answer));
+    } else if (signal.candidate) {
+      await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
+    }
+  });
 
   function upd(us) { document.getElementById('users').innerHTML=''; us.forEach(addU); }
   function addU(u) {
+    if(document.getElementById('u-'+u.id)) return;
     const d = document.createElement('div');
     d.className = 'u-card'; d.id='u-'+u.id; 
     d.innerHTML=`<span class="u-dot" id="d-${u.id}"></span>${u.name}`;
@@ -174,10 +217,7 @@
       for(let i of m.inputs.values()) {
         i.onmidimessage = e => {
           const [s, n, v] = e.data;
-          
-          // 방금 상대방이 쳐서 장부에 기록된 신호가 다시 DAW를 맞고 돌아온 거라면(메아리) 무시!
           if (echoBlock[`${s}-${n}`] && Date.now() - echoBlock[`${s}-${n}`] < 300) return;
-          
           tx(s, n, v);
         };
       }
