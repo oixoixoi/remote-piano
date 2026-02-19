@@ -5,42 +5,40 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Remote Piano</title>
   <style>
-    body { background:#111; color:#fff; display:flex; flex-direction:column; height:100vh; margin:0; overflow:hidden; font-family:sans-serif; touch-action:none; }
+    body { background:#111; color:#fff; display:flex; flex-direction:column; height:100vh; margin:0; overflow:hidden; font-family:sans-serif; touch-action:none; user-select:none; -webkit-user-select:none; }
     
-    /* 상단 메뉴바 및 접속 컨트롤 */
     header { padding:15px 25px; display:flex; justify-content:space-between; align-items:center; background:#1a1a1a; border-bottom:1px solid #333; z-index:10; box-shadow:0 4px 10px rgba(0,0,0,0.5); }
     .logo { font-size:22px; font-weight:bold; color:#0f8; letter-spacing:1px; }
     
     .control-group { display:flex; gap:10px; align-items:center; }
     input { padding:10px 15px; background:#222; border:1px solid #444; color:#fff; border-radius:5px; font-size:14px; outline:none; transition:0.2s; }
     input:focus { border-color:#0f8; }
+    
     button { padding:10px 20px; border:none; border-radius:5px; font-weight:bold; font-size:14px; cursor:pointer; transition:0.2s; }
-    .btn-join { background:#0f8; color:#000; }
-    .btn-join:hover { background:#0c6; }
+    .btn-create { background:#0f8; color:#000; } /* 방만들기 버튼 (초록) */
+    .btn-create:hover { background:#0c6; }
+    .btn-join { background:#0ea5e9; color:#fff; } /* 접속 버튼 (파랑) */
+    .btn-join:hover { background:#0284c7; }
     .btn-leave { background:#ff4444; color:#fff; }
     .btn-leave:hover { background:#cc0000; }
 
-    /* 상태 표시 대시보드 */
     .status-wrap { display:flex; align-items:center; gap:15px; background:rgba(0,0,0,0.5); padding:8px 15px; border-radius:10px; border:1px solid #333; }
     .net-info { text-align:right; display:flex; flex-direction:column; gap:3px; }
     #net-mode { font-size:12px; font-weight:bold; color:#888; }
     #net-ping { font-size:14px; font-weight:bold; color:#888; font-family:monospace; }
     
-    /* 접속한 유저 목록 (크게 변경) */
     #users { padding:20px; display:flex; gap:20px; flex-wrap:wrap; justify-content:center; min-height:40px; }
     .u-card { background:#2a2a2a; padding:12px 25px; border-radius:30px; display:flex; align-items:center; gap:10px; border:1px solid #555; font-size:18px; font-weight:bold; box-shadow:0 4px 6px rgba(0,0,0,0.3); }
     .u-dot { width:12px; height:12px; background:#555; border-radius:50%; transition:0.1s; }
     .u-dot.act { background:#0f8; box-shadow:0 0 10px #0f8; transform:scale(1.3); }
     
-    /* 피아노 건반 위치 상향 및 정렬 */
     #piano { flex:1; display:flex; align-items:flex-start; padding-top:60px; justify-content:center; position:relative; overflow-x:auto; background:linear-gradient(to bottom, #111, #050505); }
-    .k { position:relative; border-radius:0 0 5px 5px; cursor:pointer; transition:transform 0.05s, background 0.05s; }
-    .w { width:38px; height:240px; background:#fff; border:1px solid #ccc; z-index:1; }
-    .w:active, .w.on { background:#ffe600; box-shadow:0 0 15px rgba(255,230,0,0.5); transform:translateY(2px); }
     
-    /* 검은 건반 누를 때 노란색으로 빛나게 수정 */
+    .k { position:relative; border-radius:0 0 5px 5px; cursor:pointer; transition:background 0.05s; -webkit-user-drag:none; }
+    .w { width:38px; height:240px; background:#fff; border:1px solid #ccc; z-index:1; }
+    .w:active, .w.on { background:#ffe600; box-shadow:0 0 15px rgba(255,230,0,0.5); }
     .b { width:24px; height:150px; background:#000; margin:0 -12px 90px -12px; z-index:2; border:1px solid #222; }
-    .b:active, .b.on { background:#ffe600 !important; box-shadow:0 0 15px rgba(255,230,0,0.5); transform:translateY(2px); }
+    .b:active, .b.on { background:#ffe600 !important; box-shadow:0 0 15px rgba(255,230,0,0.5); }
   </style>
 </head>
 <body>
@@ -49,13 +47,16 @@
   <div class="logo">🎹 Remote Piano</div>
   
   <div class="control-group" id="login-form">
-    <input id="rn" placeholder="방 이름 (예: 합주실)">
-    <input id="pw" type="password" placeholder="비밀번호">
-    <input id="nm" placeholder="닉네임">
-    <button class="btn-join" onclick="join()">접속</button>
+    <input id="rn" placeholder="방 이름" autocomplete="off">
+    <input id="pw" type="password" placeholder="비밀번호(숫자 4자리)" maxlength="4" autocomplete="off">
+    <input id="nm" placeholder="닉네임" autocomplete="off">
+    <button class="btn-create" onclick="createRoom()">방 만들기</button>
+    <button class="btn-join" onclick="joinRoom()">방 접속</button>
   </div>
   
   <div class="control-group" id="connected-ui" style="display:none;">
+    <div id="room-name-display" style="font-weight:bold; color:#0f8; font-size:16px; margin-right:15px; letter-spacing:1px;"></div>
+    
     <div class="status-wrap" id="dash">
       <div class="net-info">
         <div id="net-mode">통신상태: 대기중</div>
@@ -80,14 +81,12 @@
   const peers = {}; 
   const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }; 
 
-  // 마우스 글리산도(드래그)를 위한 전역 상태
   let isDragging = false;
   document.addEventListener('mousedown', () => isDragging = true);
   document.addEventListener('mouseup', () => isDragging = false);
   document.addEventListener('touchstart', () => isDragging = true);
   document.addEventListener('touchend', () => isDragging = false);
 
-  // 초정밀 오디오 엔진 (지연 최소화, 빠른 반복 터치 대응)
   function play(n, v) {
     if(oscs[n]) stop(n);
     const o = audio.createOscillator();
@@ -97,7 +96,7 @@
     const vol = (v/127) * 0.5;
     
     g.gain.setValueAtTime(0, audio.currentTime);
-    g.gain.linearRampToValueAtTime(vol, audio.currentTime + 0.005); // Attack을 더 빠르게
+    g.gain.linearRampToValueAtTime(vol, audio.currentTime + 0.005); 
     g.gain.exponentialRampToValueAtTime(vol * 0.1, audio.currentTime + 1.5);
     
     o.connect(g); g.connect(audio.destination);
@@ -112,7 +111,7 @@
     if(gains[n]) {
       gains[n].gain.cancelScheduledValues(audio.currentTime);
       gains[n].gain.setValueAtTime(gains[n].gain.value, audio.currentTime);
-      gains[n].gain.linearRampToValueAtTime(0, audio.currentTime + 0.03); // 잔향 끊기 고속화
+      gains[n].gain.linearRampToValueAtTime(0, audio.currentTime + 0.03); 
     }
     const o = oscs[n];
     setTimeout(()=>{ if(o) { o.stop(); o.disconnect(); } }, 40);
@@ -144,22 +143,31 @@
     const isB = [1,3,6,8,10].includes(i%12);
     const d = document.createElement('div');
     d.id = 'k'+i; d.className = `k ${isB?'b':'w'}`;
+    d.draggable = false; 
     
-    // 마우스 누름, 떼기 및 드래그(글리산도) 로직
     d.addEventListener('mousedown', (e) => { e.preventDefault(); tx(144, i, 100); });
-    d.addEventListener('mouseenter', (e) => { e.preventDefault(); if(isDragging) tx(144, i, 100); });
-    d.addEventListener('mouseleave', (e) => { e.preventDefault(); tx(128, i, 0); });
-    d.addEventListener('mouseup', (e) => { e.preventDefault(); tx(128, i, 0); });
+    d.addEventListener('mouseenter', (e) => { if(e.buttons === 1) tx(144, i, 100); });
+    d.addEventListener('mouseleave', (e) => { tx(128, i, 0); });
+    d.addEventListener('mouseup', (e) => { tx(128, i, 0); });
     
+    d.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      currentTouchNote = i;
+      tx(144, i, 100);
+    }, {passive: false});
+    
+    d.addEventListener('touchend', (e) => { e.preventDefault(); tx(128, i, 0); currentTouchNote = null; }, {passive: false});
+    d.addEventListener('touchcancel', (e) => { e.preventDefault(); tx(128, i, 0); currentTouchNote = null; }, {passive: false});
+
     p.appendChild(d);
   }
 
-  // 모바일 터치 글리산도 처리 (화면 긁을 때 연주)
   let currentTouchNote = null;
   document.addEventListener('touchmove', (e) => {
-    if(!isDragging) return;
+    if (e.target.closest('#piano')) e.preventDefault();
     const touch = e.touches[0];
     const elem = document.elementFromPoint(touch.clientX, touch.clientY);
+    
     if(elem && elem.classList.contains('k')) {
       const note = parseInt(elem.id.replace('k',''));
       if(currentTouchNote !== note) {
@@ -167,30 +175,56 @@
         currentTouchNote = note;
         tx(144, note, 100);
       }
+    } else {
+      if(currentTouchNote) { tx(128, currentTouchNote, 0); currentTouchNote = null; }
     }
   }, {passive: false});
-  document.addEventListener('touchend', () => {
-    if(currentTouchNote) { tx(128, currentTouchNote, 0); currentTouchNote = null; }
-  });
 
-  function join() {
-    const r = document.getElementById('rn').value, pw = document.getElementById('pw').value, n = document.getElementById('nm').value;
-    if(!r || !pw || !n) { alert("방 이름, 비밀번호, 닉네임을 모두 입력해주세요!"); return; }
-    if(audio.state==='suspended') audio.resume();
+  // 입력값 검증 함수 (비밀번호 4자리 강제)
+  function validateInput() {
+    const r = document.getElementById('rn').value.trim();
+    const pw = document.getElementById('pw').value.trim();
+    const n = document.getElementById('nm').value.trim();
     
+    if(!r || !pw || !n) { alert("방 이름, 비밀번호, 닉네임을 모두 채워주세요!"); return null; }
+    if(!/^\d{4}$/.test(pw)) { alert("비밀번호는 숫자 4자리로만 입력해야 합니다!"); return null; }
+    
+    return { r, pw, n };
+  }
+
+  // 1. 방 만들기
+  function createRoom() {
+    const data = validateInput();
+    if(!data) return;
+    if(audio.state==='suspended') audio.resume();
+    document.getElementById('net-mode').innerText = "개설 중...";
+    socket.emit('create-room', { roomName: data.r, userName: data.n, password: data.pw });
+    window.currentRoom = data.r;
+  }
+
+  // 2. 방 접속
+  function joinRoom() {
+    const data = validateInput();
+    if(!data) return;
+    if(audio.state==='suspended') audio.resume();
     document.getElementById('net-mode').innerText = "접속 중...";
-    socket.emit('join-room', { roomName:r, userName:n, password:pw });
-    window.currentRoom = r;
+    socket.emit('join-room', { roomName: data.r, userName: data.n, password: data.pw });
+    window.currentRoom = data.r;
   }
 
   socket.on('join-success', d => {
-    // UI 변경 (폼 숨기고, 대시보드 노출)
     document.getElementById('login-form').style.display = 'none';
     document.getElementById('connected-ui').style.display = 'flex';
+    document.getElementById('room-name-display').innerText = `[ ${d.roomName} ]`;
     upd(d.users);
   });
 
-  socket.on('error-msg', m => { alert(m); document.getElementById('net-mode').innerText = "대기중"; });
+  socket.on('error-msg', m => { 
+    alert(m); 
+    document.getElementById('net-mode').innerText = "대기중"; 
+    window.currentRoom = null; 
+  });
+  
   socket.on('user-left', id => { document.getElementById('u-'+id)?.remove(); if(peers[id]) { peers[id].pc.close(); delete peers[id]; } });
 
   socket.on('remote-midi', d => { 
@@ -203,9 +237,6 @@
 
   socket.on('user-activity', d => flash(d.id));
 
-  // ----------------------------------------------------
-  // 한국어 네트워크 상태 표시 (좋음, 중간, 나쁨)
-  // ----------------------------------------------------
   function updatePing(ms) {
     const pingEl = document.getElementById('net-ping');
     const modeEl = document.getElementById('net-mode');
@@ -243,7 +274,6 @@
     }
   }, 2000);
 
-  // WebRTC P2P 통신
   function setupPeerConnection(peerId, initiate) {
     const pc = new RTCPeerConnection(rtcConfig);
     peers[peerId] = { pc: pc, dataChannel: null };
@@ -315,7 +345,6 @@
       for(let i of m.inputs.values()) {
         i.onmidimessage = e => {
           const [s, n, v] = e.data;
-          // 메아리 차단 로직 시간을 100ms로 줄여서 연타(빠른 동일노트 입력)가 안 씹히도록 개선
           if (echoBlock[`${s}-${n}`] && Date.now() - echoBlock[`${s}-${n}`] < 100) return;
           tx(s, n, v);
         };
