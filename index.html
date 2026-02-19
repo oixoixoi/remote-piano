@@ -25,7 +25,8 @@
     .u-dot { width:8px; height:8px; background:#555; border-radius:50%; transition:0.1s; }
     .u-dot.act { background:#0f8; box-shadow:0 0 8px #0f8; transform:scale(1.2); }
 
-    #piano { flex:1; display:flex; #piano { flex:1; display:flex; align-items:flex-start; padding-top:50px; justify-content:center; position:relative; overflow-x:auto; background:linear-gradient(to bottom, #111, #000); } justify-content:center; position:relative; overflow-x:auto; background:linear-gradient(to bottom, #111, #000); }
+    /* 건반 정렬 위치 수정 (위쪽부터 매달리게 변경) */
+    #piano { flex:1; display:flex; align-items:flex-start; padding-top:40px; justify-content:center; position:relative; overflow-x:auto; background:linear-gradient(to bottom, #111, #000); }
     .k { position:relative; border-radius:0 0 5px 5px; cursor:pointer; transition:0.05s; }
     .w { width:32px; height:220px; background:#fff; border:1px solid #ccc; z-index:1; }
     .w:active, .w.on { background:#ffe600; box-shadow:0 0 15px rgba(255,230,0,0.5); transform:translateY(2px); }
@@ -107,44 +108,4 @@
     const r = document.getElementById('rn').value;
     const p = document.getElementById('pw').value;
     const n = document.getElementById('nm').value;
-    if(!r || !p || !n) return document.getElementById('err').innerText = "빈칸을 모두 채워주세요!";
-    if(audio.state==='suspended') audio.resume();
-    document.getElementById('st').className = 'status con';
-    document.getElementById('st-txt').innerText = "CONNECTING...";
-    socket.emit('join-room', { roomName:r, userName:n, password:p });
-    room = r;
-  }
-
-  socket.on('join-success', d => {
-    document.getElementById('login').style.display='none';
-    document.getElementById('st').className = 'status ok';
-    document.getElementById('st-txt').innerText = "ONLINE";
-    document.getElementById('st-txt').style.color = "#0f8";
-    document.getElementById('info').innerText = `ROOM: ${d.roomName}`;
-    upd(d.users);
-  });
-  
-  socket.on('error-msg', m => { document.getElementById('err').innerText = m; document.getElementById('st').className='status'; document.getElementById('st-txt').innerText = "ERROR"; });
-  socket.on('user-joined', u => addU(u));
-  socket.on('user-left', id => { document.getElementById('u-'+id)?.remove(); });
-  socket.on('remote-midi', d => { const [s,n,v] = d.msg; if(s===144 && v>0) play(n,v); else stop(n); flash(d.id); });
-  socket.on('user-activity', d => flash(d.id));
-
-  function upd(us) { document.getElementById('users').innerHTML=''; us.forEach(addU); }
-  function addU(u) {
-    const d = document.createElement('div');
-    d.className = 'u-card'; d.id='u-'+u.id; 
-    d.innerHTML=`<span class="u-dot" id="d-${u.id}"></span>${u.name}`;
-    document.getElementById('users').appendChild(d);
-  }
-  function flash(id) {
-    const d = document.getElementById('d-'+id);
-    if(d) { d.classList.add('act'); setTimeout(()=>d.classList.remove('act'), 100); }
-  }
-  
-  if(navigator.requestMIDIAccess) {
-    navigator.requestMIDIAccess().then(m => { for(let i of m.inputs.values()) i.onmidimessage = e => tx(e.data[0], e.data[1], e.data[2]); });
-  }
-</script>
-</body>
-</html>
+    if(!r || !p || !n
