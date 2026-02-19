@@ -3,54 +3,61 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Remote Piano</title>
+  <title>Remote Piano - Pro Session</title>
   <style>
-    body { background:#0a0a0a; color:#fff; display:flex; flex-direction:column; height:100vh; margin:0; overflow:hidden; font-family:'Inter', -apple-system, BlinkMacSystemFont, sans-serif; touch-action:none; user-select:none; -webkit-user-select:none; }
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+    body { background:#0a0a0a; color:#fff; display:flex; flex-direction:column; height:100vh; margin:0; overflow:hidden; font-family:'Inter', sans-serif; touch-action:none; user-select:none; -webkit-user-select:none; }
     
-    header { padding:15px 25px; display:flex; flex-direction:column; gap:12px; background:rgba(26,26,26,0.8); backdrop-filter:blur(12px); border-bottom:1px solid #333; z-index:10; }
+    header { padding:18px 25px; display:flex; flex-direction:column; gap:12px; background:linear-gradient(to bottom, #1a1a1a, #111); border-bottom:1px solid #333; z-index:10; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
     .header-top { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:15px; }
-    .logo { font-size:20px; font-weight:800; color:#0f8; letter-spacing:1px; text-transform:uppercase; display:flex; align-items:center; gap:8px; }
+    .logo { font-size:22px; font-weight:900; color:#0f8; letter-spacing:1px; text-transform:uppercase; display:flex; align-items:center; gap:10px; text-shadow: 0 0 15px rgba(0,255,136,0.3); }
     
-    /* 입력창 및 로비 통합 섹션 */
-    .auth-container { display:flex; flex-direction:column; gap:12px; align-items:flex-end; }
+    /* 입력창 및 로비 섹션 */
+    .auth-container { display:flex; flex-direction:column; gap:10px; align-items:flex-end; }
     .control-group { display:flex; gap:8px; align-items:center; }
     
-    input { padding:10px 14px; background:#1a1a1a; border:1px solid #333; color:#fff; border-radius:10px; font-size:13px; outline:none; transition:0.3s; width:120px; font-weight:500; }
-    input:focus { border-color:#0f8; background:#222; box-shadow:0 0 0 2px rgba(0,255,136,0.1); }
-    input[readonly] { color:#0f8; font-weight:700; cursor:not-allowed; border-style:dashed; opacity:0.8; } 
+    input { padding:12px 16px; background:#161616; border:1px solid #333; color:#fff; border-radius:12px; font-size:13px; outline:none; transition:0.3s; width:130px; font-weight:600; }
+    input:focus { border-color:#0f8; background:#1a1a1a; box-shadow:0 0 0 3px rgba(0,255,136,0.1); }
+    input[readonly] { color:#0f8; font-weight:800; border-style:dashed; cursor:not-allowed; }
     
-    button { padding:10px 18px; border:none; border-radius:10px; font-weight:700; font-size:12px; cursor:pointer; transition:all 0.2s cubic-bezier(0.4, 0, 0.2, 1); display:flex; align-items:center; gap:6px; text-transform:uppercase; letter-spacing:0.5px; }
-    .btn-create { background:#0f8; color:#000; } 
+    button { padding:12px 20px; border:none; border-radius:12px; font-weight:800; font-size:12px; cursor:pointer; transition:0.2s; display:flex; align-items:center; gap:8px; text-transform:uppercase; letter-spacing:0.5px; }
+    .btn-create { background:#0f8; color:#000; box-shadow: 0 4px 15px rgba(0,255,136,0.2); } 
     .btn-join { background:#2563eb; color:#fff; } 
     .btn-leave { background:#222; color:#ff4444; border:1px solid #333; }
 
-    /* 🔈 Sound Toggle Button */
-    .btn-mute { background:#222; color:#888; border:1px solid #333; min-width:130px; justify-content:center; }
-    .btn-mute.active { background:rgba(0, 255, 136, 0.08); color:#0f8; border-color:rgba(0,255,136,0.3); }
-    .btn-mute.muted { background:rgba(255, 68, 68, 0.08); color:#ff4444; border-color:rgba(255,68,68,0.3); }
+    .btn-mute { background:#1a1a1a; color:#666; border:1px solid #333; min-width:140px; justify-content:center; }
+    .btn-mute.active { color:#0f8; border-color:rgba(0,255,136,0.4); background:rgba(0,255,136,0.05); }
+    .btn-mute.muted { color:#ff4444; border-color:rgba(255,68,68,0.4); background:rgba(255,68,68,0.05); }
 
-    /* 🏠 입력창 바로 아래 붙는 로비 */
     .lobby-area { display:flex; gap:10px; align-items:center; justify-content: flex-end; width: 100%; margin-top:-2px; }
-    .lobby-label { color:#444; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:1px; }
+    .lobby-label { color:#444; font-size:10px; font-weight:900; text-transform:uppercase; }
     #active-rooms { display:flex; gap:6px; flex-wrap:wrap; justify-content: flex-end; }
-    .room-tag { padding:4px 10px; background:#161616; border:1px solid #262626; border-radius:6px; cursor:pointer; font-size:11px; color:#888; transition:0.2s; font-weight:600; }
-    .room-tag:hover { background:rgba(0, 255, 136, 0.1); border-color:#0f8; color:#0f8; }
+    .room-tag { padding:5px 12px; background:#111; border:1px solid #222; border-radius:8px; cursor:pointer; font-size:11px; color:#777; transition:0.2s; font-weight:700; }
+    .room-tag:hover { background:rgba(0,255,136,0.1); border-color:#0f8; color:#0f8; }
 
-    .status-wrap { display:flex; align-items:center; gap:10px; background:rgba(0,0,0,0.3); padding:6px 14px; border-radius:10px; border:1px solid #222; }
-    #net-mode { font-size:10px; font-weight:800; text-transform:uppercase; color:#666; }
-    #net-ping { font-size:12px; font-weight:900; font-family: 'JetBrains Mono', monospace; }
+    .status-wrap { display:flex; align-items:center; gap:10px; background:rgba(0,0,0,0.5); padding:8px 16px; border-radius:12px; border:1px solid #333; }
+    #net-mode { font-size:10px; font-weight:900; color:#555; }
+    #net-ping { font-size:13px; font-weight:900; font-family: 'JetBrains Mono', monospace; }
+
+    #users { padding:15px; display:flex; gap:12px; flex-wrap:wrap; justify-content:center; min-height:50px; }
+    .u-card { background:#161616; padding:8px 18px; border-radius:25px; display:flex; align-items:center; gap:10px; border:1px solid #222; font-size:14px; font-weight:800; color:#ccc; }
+    .u-dot { width:8px; height:8px; background:#333; border-radius:50%; transition:0.1s; }
+    .u-dot.act { background:#0f8; box-shadow:0 0 12px #0f8; transform:scale(1.4); }
+
+    /* 🎹 입체 건반 스타일 */
+    #piano-container { flex:1; display:flex; align-items:flex-start; justify-content:center; background:#050505; position:relative; overflow-x:auto; padding-top:40px; }
+    #piano-container::before { content:''; position:absolute; top:0; left:0; right:0; height:45px; background:linear-gradient(to bottom, #1a1a1a, #000); border-bottom:2px solid #333; z-index:5; }
     
-    #users { padding:15px; display:flex; gap:10px; flex-wrap:wrap; justify-content:center; min-height:45px; }
-    .u-card { background:#161616; padding:8px 16px; border-radius:20px; display:flex; align-items:center; gap:8px; border:1px solid #262626; font-size:13px; font-weight:700; color:#eee; }
-    .u-dot { width:7px; height:7px; background:#333; border-radius:50%; transition:all 0.1s; }
-    .u-dot.act { background:#0f8; box-shadow:0 0 10px #0f8; transform:scale(1.4); }
+    #piano { display:flex; position:relative; }
+    .k { position:relative; cursor:pointer; transition:0.05s; }
     
-    #piano { flex:1; display:flex; align-items:flex-start; padding-top:20px; justify-content:center; position:relative; overflow-x:auto; background:#0a0a0a; }
-    .k { position:relative; border-radius:0 0 6px 6px; cursor:pointer; transition:background 0.05s; }
-    .w { width:38px; height:220px; background:#fff; border:1px solid #ddd; z-index:1; }
-    .w.on { background:#ffe600 !important; box-shadow:0 0 20px rgba(255,230,0,0.6); }
-    .b { width:24px; height:135px; background:#1a1a1a; margin:0 -12px 85px -12px; z-index:2; border:1px solid #000; }
-    .b.on { background:#ffe600 !important; box-shadow:0 0 20px rgba(255,230,0,0.6); }
+    /* 흰 건반: 진한 골드 노란색으로 점등 */
+    .w { width:42px; height:260px; background:linear-gradient(to bottom, #eee 0%, #fff 5%, #f2f2f2 95%, #bbb 100%); border:1px solid #999; border-radius:0 0 5px 5px; z-index:1; box-shadow: inset 0 -5px 10px rgba(0,0,0,0.1), 0 5px 15px rgba(0,0,0,0.4); }
+    .w.on { background:linear-gradient(to bottom, #ffb300, #ff8c00) !important; box-shadow: 0 0 30px rgba(255,160,0,0.9), inset 0 -5px 15px rgba(0,0,0,0.3) !important; border-color:#e6a000; transform: translateY(2px); }
+    
+    /* 검은 건반: 금속 느낌 */
+    .b { width:26px; height:160px; background:linear-gradient(to bottom, #333 0%, #111 10%, #000 90%, #222 100%); margin:0 -13px 100px -13px; z-index:2; border-radius:0 0 3px 3px; border:1px solid #000; box-shadow: 2px 5px 10px rgba(0,0,0,0.6); }
+    .b.on { background:linear-gradient(to bottom, #ccaa00, #a18500) !important; box-shadow: 0 0 25px rgba(255,200,0,0.7) !important; border-color:#b39700; transform: translateY(1px); }
   </style>
 </head>
 <body>
@@ -67,7 +74,6 @@
         <button class="btn-create" id="btn-action" onclick="createRoom()">CREATE</button>
         <button id="btn-cancel" class="btn-leave" style="display:none;" onclick="resetLobbyMode()">CANCEL</button>
       </div>
-      
       <div class="lobby-area" id="lobby-wrap">
         <span class="lobby-label">Active:</span>
         <div id="active-rooms"></div>
@@ -75,7 +81,7 @@
     </div>
     
     <div class="control-group" id="connected-ui" style="display:none;">
-      <div id="room-name-display" style="font-weight:900; color:#0f8; font-size:14px; margin-right:5px;"></div>
+      <div id="room-name-display" style="font-weight:900; color:#0f8; font-size:16px; margin-right:8px;"></div>
       <div class="status-wrap">
         <div class="net-info">
           <div id="net-mode">LINKING</div>
@@ -91,7 +97,7 @@
 </header>
 
 <div id="users"></div>
-<div id="piano"></div>
+<div id="piano-container"><div id="piano"></div></div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
@@ -105,7 +111,6 @@
   let isSustainOn = false;
   let sustainedNotes = new Set();
 
-  // 자동 오디오 활성화
   const unlockEvents = ['mousedown', 'touchstart', 'keydown', 'mousemove'];
   function autoUnlock() {
     if (audio.state === 'suspended') {
@@ -137,8 +142,10 @@
   }
 
   function play(n, v) {
-    document.getElementById('k'+n)?.classList.add('on');
+    const key = document.getElementById('k'+n);
+    if(key) key.classList.add('on');
     flashMyDot(true);
+    
     if(isMuted) { activeVoices[n] = { isDummy: true }; return; }
     if(audio.state === 'suspended') audio.resume();
     if(activeVoices[n]) stop(n, true);
@@ -146,18 +153,23 @@
     const now = audio.currentTime;
     const freq = 440 * Math.pow(2, (n-69)/12);
     const vol = (v/127) * 0.35;
+    
     const b = audio.createOscillator();
     const bg = audio.createGain();
     b.type = 'triangle'; b.frequency.value = freq;
+    
     const t = audio.createOscillator();
     const tg = audio.createGain();
     t.type = 'sine'; t.frequency.value = freq * 3.001; 
+    
     const m = audio.createGain();
     m.gain.setValueAtTime(0, now);
     m.gain.linearRampToValueAtTime(vol, now + 0.005);
     m.gain.exponentialRampToValueAtTime(vol * 0.05, now + 2.5);
+
     bg.gain.value = 0.8; tg.gain.setValueAtTime(0.4, now);
     tg.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+
     b.connect(bg); bg.connect(m); t.connect(tg); tg.connect(m);
     m.connect(audio.destination);
     b.start(); t.start();
@@ -170,21 +182,24 @@
       const now = audio.currentTime;
       v.g.gain.cancelScheduledValues(now);
       v.g.gain.linearRampToValueAtTime(0, now + 0.1);
-      setTimeout(() => { v.b.stop(); v.t.stop(); v.g.disconnect(); }, 150);
+      setTimeout(() => { if(v.b) v.b.stop(); if(v.t) v.t.stop(); v.g.disconnect(); }, 150);
     }
   }
 
   function stop(n, force = false) {
-    document.getElementById('k'+n)?.classList.remove('on');
+    const key = document.getElementById('k'+n);
+    if(key) key.classList.remove('on');
+    
     const v = activeVoices[n];
     if(!v) return;
     if(isSustainOn && !force) { sustainedNotes.add(n); return; }
+    
     if(!v.isDummy) {
       const now = audio.currentTime;
       v.g.gain.cancelScheduledValues(now);
       v.g.gain.setValueAtTime(v.g.gain.value, now);
       v.g.gain.linearRampToValueAtTime(0, now + 0.15); 
-      setTimeout(() => { v.b.stop(); v.t.stop(); v.g.disconnect(); }, 200);
+      setTimeout(() => { if(v.b) v.b.stop(); if(v.t) v.t.stop(); v.g.disconnect(); }, 200);
     }
     delete activeVoices[n]; sustainedNotes.delete(n);
     if (Object.keys(activeVoices).length === 0) flashMyDot(false);
@@ -197,12 +212,15 @@
 
   function tx(s, n, v) {
     if(s === 176 && n === 64) handleSustain(v);
-    else if(s===144 && v>0) play(n,v); else stop(n);
+    else if((s & 0xF0) === 0x90 && v > 0) play(n,v); 
+    else if((s & 0xF0) === 0x80 || ((s & 0xF0) === 0x90 && v === 0)) stop(n);
+    
     const m = JSON.stringify([s, n, v]);
     for (const id in peers) if (peers[id].dataChannel?.readyState === 'open') peers[id].dataChannel.send(m);
     if (window.currentRoom) socket.emit('midi-msg', { roomName: window.currentRoom, msg: [s, n, v] });
   }
 
+  // 🎹 건반 생성
   const pEl = document.getElementById('piano');
   for(let i=21; i<=108; i++) {
     const isB = [1,3,6,8,10].includes(i%12);
@@ -211,10 +229,26 @@
     pEl.appendChild(d);
   }
 
+  // 마우스 이벤트
   let amk = null;
-  pEl.addEventListener('mousedown', (e) => { const k = e.target.closest('.k'); if(k) { e.preventDefault(); const n = parseInt(k.id.replace('k','')); amk = n; tx(144, n, 100); } });
-  pEl.addEventListener('mouseover', (e) => { if(e.buttons !== 1) return; const k = e.target.closest('.k'); if(k) { const n = parseInt(k.id.replace('k','')); if(amk !== n) { if(amk) tx(128, amk, 0); amk = n; tx(144, n, 100); } } });
-  window.addEventListener('mouseup', () => { if(amk) { tx(128, amk, 0); amk = null; } });
+  pEl.addEventListener('mousedown', (e) => { const k = e.target.closest('.k'); if(k) { e.preventDefault(); const n = parseInt(k.id.replace('k','')); amk = n; tx(0x90, n, 100); } });
+  pEl.addEventListener('mouseover', (e) => { if(e.buttons !== 1) return; const k = e.target.closest('.k'); if(k) { const n = parseInt(k.id.replace('k','')); if(amk !== n) { if(amk) tx(0x80, amk, 0); amk = n; tx(0x90, n, 100); } } });
+  window.addEventListener('mouseup', () => { if(amk) { tx(0x80, amk, 0); amk = null; } });
+
+  // 📡 MIDI 엔진 강화: 로직 및 모든 미디 입력 신호 감지
+  if (navigator.requestMIDIAccess) {
+    navigator.requestMIDIAccess().then(access => {
+      const inputs = access.inputs.values();
+      for (let input of inputs) {
+        input.onmidimessage = (e) => tx(e.data[0], e.data[1], e.data[2]);
+      }
+      access.onstatechange = (e) => {
+        if(e.port.state === 'connected') {
+          e.port.onmidimessage = (ev) => tx(ev.data[0], ev.data[1], ev.data[2]);
+        }
+      };
+    });
+  }
 
   socket.on('room-list', rs => {
     const c = document.getElementById('active-rooms');
@@ -224,19 +258,18 @@
 
   function selectRoom(r) { document.getElementById('rn').value = r; document.getElementById('rn').readOnly = true; const b = document.getElementById('btn-action'); b.innerText = "JOIN"; b.className = "btn-join"; b.onclick = joinRoom; document.getElementById('btn-cancel').style.display = 'inline-block'; document.getElementById('pw').focus(); }
   function resetLobbyMode() { document.getElementById('rn').value = ''; document.getElementById('rn').readOnly = false; const b = document.getElementById('btn-action'); b.innerText = "CREATE"; b.className = "btn-create"; b.onclick = createRoom; document.getElementById('btn-cancel').style.display = 'none'; }
-  function validate() { const r = document.getElementById('rn').value.trim(), pw = document.getElementById('pw').value.trim(), n = document.getElementById('nm').value.trim(); if(!r || !pw || !n) { alert("Check fields!"); return null; } return { r, pw, n }; }
+  function validate() { const r = document.getElementById('rn').value.trim(), pw = document.getElementById('pw').value.trim(), n = document.getElementById('nm').value.trim(); if(!r || !pw || !n) { alert("항목을 모두 입력해주세요!"); return null; } return { r, pw, n }; }
   function createRoom() { const d = validate(); if(!d) return; audio.resume(); socket.emit('create-room', { roomName: d.r, userName: d.n, password: d.pw }); window.currentRoom = d.r; }
   function joinRoom() { const d = validate(); if(!d) return; audio.resume(); socket.emit('join-room', { roomName: d.r, userName: d.n, password: d.pw }); window.currentRoom = d.r; }
 
   socket.on('join-success', d => { document.getElementById('login-form').style.display = 'none'; document.getElementById('connected-ui').style.display = 'flex'; document.getElementById('room-name-display').innerText = d.roomName; upd(d.users); });
-  socket.on('remote-midi', d => { const [s,n,v] = d.msg; if(s === 176 && n === 64) handleSustain(v); else if(s===144 && v>0) play(n,v); else stop(n); flash(d.id); });
+  socket.on('remote-midi', d => { const [s,n,v] = d.msg; if(s === 176 && n === 64) handleSustain(v); else if((s & 0xF0) === 0x90 && v > 0) play(n,v); else stop(n); flash(d.id); });
   socket.on('ping-res', t => { const ms = Date.now() - t; document.getElementById('net-ping').innerText = ms + " MS"; document.getElementById('net-ping').style.color = ms < 50 ? "#0f8" : "#ffeb3b"; document.getElementById('net-mode').innerText = ms < 50 ? "PERFECT" : "STABLE"; });
   setInterval(() => { if(window.currentRoom) socket.emit('ping-req', Date.now()); }, 2000);
 
   function upd(us) { document.getElementById('users').innerHTML=''; us.forEach(addU); }
   function addU(u) { if(document.getElementById('u-'+u.id)) return; const d = document.createElement('div'); d.className = 'u-card'; d.id='u-'+u.id; d.innerHTML=`<span class="u-dot" id="d-${u.id}"></span>${u.name.toUpperCase()}`; document.getElementById('users').appendChild(d); }
   function flash(id) { const d = document.getElementById('d-'+id); if(d) { d.classList.add('act'); setTimeout(()=>d.classList.remove('act'), 100); } }
-  if(navigator.requestMIDIAccess) { navigator.requestMIDIAccess().then(m => { for(let i of m.inputs.values()) i.onmidimessage = e => tx(e.data[0], e.data[1], e.data[2]); }); }
 </script>
 </body>
 </html>
