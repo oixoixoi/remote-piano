@@ -10,34 +10,32 @@ app.get('/', (req, res) => { res.sendFile(__dirname + '/index.html'); });
 const rooms = {};
 
 io.on('connection', (socket) => {
-    // 1. 방 접속/생성 통합 로직
+    // 접속 및 방 생성 통합
     socket.on('join-room', ({ roomName, userName, password }) => {
-        // 방이 없으면 새로 생성
         if (!rooms[roomName]) {
             rooms[roomName] = { password, users: [] };
         }
         
-        // 비밀번호 체크
         if (rooms[roomName].password !== password) {
-            return socket.emit('error-msg', '비밀번호가 일치하지 않습니다.');
+            return socket.emit('error-msg', '비밀번호가 틀렸습니다.');
         }
 
-        // 방 입장
         socket.join(roomName);
         const user = { id: socket.id, name: userName };
         rooms[roomName].users.push(user);
         
-        // 본인 및 방 인원에게 알림
+        // 본인에게 성공 알림 및 방 인원 전체 명단 동기화
         socket.emit('join-success', { roomName, users: rooms[roomName].users });
         io.to(roomName).emit('update-users', rooms[roomName].users);
     });
 
-    // 2. 미디 신호 중계
+    // 미디 신호 중계
     socket.on('midi-msg', (data) => {
         socket.to(data.roomName).emit('remote-midi', { id: socket.id, msg: data.msg });
     });
 
-    // 3. 접속 종료 처리
+    socket.on('ping-req', (t) => { socket.emit('ping-res', t); });
+
     socket.on('disconnect', () => {
         for (const roomName in rooms) {
             const room = rooms[roomName];
@@ -53,4 +51,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => { console.log(`Server running on port ${PORT}`); });
+server.listen(PORT, () => { console.log(`🚀 서버 가동 중: ${PORT}`); });
